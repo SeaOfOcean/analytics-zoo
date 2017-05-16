@@ -63,7 +63,7 @@
         <scala.macros.version>2.0.1</scala.macros.version>
         <scalatest.version>2.2.4</scalatest.version>
         <spark.version>1.5.1</spark.version>
-        <spark-scope>provided</spark-scope>
+        <spark-scope>compile</spark-scope>
     </properties>
 
     <dependencies>
@@ -189,6 +189,21 @@
                 </configuration>
 
                 <executions>
+                    <execution>
+                        <id>python</id>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <finalName>pipeline-${project.version}</finalName>
+                            <descriptors>
+                                <descriptor>assembly/python-zip.xml
+                                </descriptor>
+                            </descriptors>
+                        </configuration>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
                     <execution>
                         <phase>package</phase>
                         <goals>
