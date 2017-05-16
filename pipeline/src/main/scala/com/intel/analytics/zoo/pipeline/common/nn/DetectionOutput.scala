@@ -159,40 +159,42 @@ class DetectionOutput(param: PostProcessParam) extends AbstractModule[Table, Ten
     val allDecodedBboxes = BboxUtil.decodeBboxesAll(allLocPreds, priorBoxes, priorVariances,
       numLocClasses, param.bgLabel, false, param.varianceEncodedInTarget, param.shareLocation,
       allLocPreds)
-    var numKept = 0
+    val numKepts = new Array[Int](batch)
+    var maxDetection = 0
 
     i = 0
     while (i < batch) {
-      numKept += filterBboxes(allDecodedBboxes(i), allConfScores(i),
+      val num = filterBboxes(allDecodedBboxes(i), allConfScores(i),
         allIndices(i), allIndicesNum(i))
+      numKepts(i) = num
+      maxDetection = Math.max(maxDetection, num)
       i += 1
     }
-    output.resize(numKept, 7)
-    if (numKept > 0) {
-      val outputData = output.storage().array()
-      var outOffset = output.storageOffset() - 1
+    // the first element is the number of detection numbers
+    output = Tensor[Float](batch, 1 + maxDetection * 6)
+    if (numKepts.sum > 0) {
       i = 0
       while (i < batch) {
+        val outi = output(i + 1)
         var c = 0
+        outi.setValue(1, numKepts(i))
+        var offset = 2
         while (c < allIndices(i).length) {
           val indices = allIndices(i)(c)
           if (indices != null) {
             val indicesNum = allIndicesNum(i)(c)
             val locLabel = if (param.shareLocation) allDecodedBboxes(i).length - 1 else c
             val bboxes = allDecodedBboxes(i)(locLabel)
-            var bboxesOffset = allDecodedBboxes(i)(locLabel).storageOffset() - 1
             var j = 0
             while (j < indicesNum) {
               val idx = indices(j)
-              outputData(outOffset) = i
-              outputData(outOffset + 1) = c
-              outputData(outOffset + 2) = allConfScores(i)(c).valueAt(idx)
-              outputData(outOffset + 3) = bboxes.valueAt(idx, 1)
-              outputData(outOffset + 4) = bboxes.valueAt(idx, 2)
-              outputData(outOffset + 5) = bboxes.valueAt(idx, 3)
-              outputData(outOffset + 6) = bboxes.valueAt(idx, 4)
-              bboxesOffset += 4
-              outOffset += 7
+              outi.setValue(offset, c)
+              outi.setValue(offset + 1, allConfScores(i)(c).valueAt(idx))
+              outi.setValue(offset + 2, bboxes.valueAt(idx, 1))
+              outi.setValue(offset + 3, bboxes.valueAt(idx, 2))
+              outi.setValue(offset + 4, bboxes.valueAt(idx, 3))
+              outi.setValue(offset + 5, bboxes.valueAt(idx, 4))
+              offset += 6
               j += 1
             }
           }

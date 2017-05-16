@@ -46,7 +46,7 @@ class SSDPythonBigDL[T: ClassTag](implicit ev: TensorNumeric[T]) extends PythonB
     model: AbstractModule[Activity, Activity, Float], nClasses: Int = 21)
   : JList[JList[JList[JList[Float]]]] = {
     val predictor = new Predictor(model,
-      PreProcessParam(batchSize, resolution, (123f, 117f, 104f), false))
+      PreProcessParam(batchSize, resolution, (123f, 117f, 104f), false), nClasses)
     val data = IOUtils.loadLocalFolder(nPartition, folder, sc)
     val results = predictor.predict(data).collect()
     val pathArr = data.map(x => x.path).collect()
