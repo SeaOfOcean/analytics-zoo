@@ -21,7 +21,7 @@ import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.utils.T
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, RoiImageToBatch, SSDByteRecord, SSDMiniBatch}
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
@@ -36,7 +36,7 @@ class Predictor(
     BytesToMat() ->
     RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
     MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
-    RoiImageToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
+    FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
   val postProcessor = new Postprocessor(postProcessParam)
 
@@ -48,7 +48,7 @@ class Predictor(
 object Predictor {
   def predict(rdd: RDD[SSDByteRecord],
     model: Module[Float],
-    preProcessor: Transformer[SSDByteRecord, SSDMiniBatch],
+    preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch],
     postProcessor: Postprocessor
   ): RDD[Array[RoiLabel]] = {
     model.evaluate()

@@ -20,12 +20,12 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.bigdl.utils.{T, Table}
+import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.pipeline.common.DetectionEvaluator
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, RoiImageToBatch, SSDByteRecord, SSDMiniBatch}
-import com.intel.analytics.zoo.transform.vision.image.augmentation.{RandomResize, Resize}
-import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats, RandomTransformer}
-import com.intel.analytics.zoo.transform.vision.label.roi.{RoiNormalize, RoiResize}
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
+import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
+import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
+import com.intel.analytics.zoo.transform.vision.label.roi.RoiResize
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 
@@ -39,7 +39,7 @@ class Validator(model: Module[Float],
     RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
     RoiResize() ->
     MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
-    RoiImageToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
+    FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
   val postProcessor = new Postprocessor(postProcessParam)
 
@@ -52,7 +52,7 @@ object Validator {
   val logger = Logger.getLogger(this.getClass)
 
   def test(rdd: RDD[SSDByteRecord], model: Module[Float],
-    preProcessor: Transformer[SSDByteRecord, SSDMiniBatch],
+    preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch],
     postProcessor: Postprocessor,
     evaluator: DetectionEvaluator): Array[(String, Double)] = {
     model.evaluate()
