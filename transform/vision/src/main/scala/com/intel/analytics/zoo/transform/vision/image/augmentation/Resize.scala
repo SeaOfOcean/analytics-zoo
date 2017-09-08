@@ -57,7 +57,7 @@ object Resize {
     new Resize(resizeH, resizeW, resizeMode)
 
   def transform(input: OpenCVMat, output: OpenCVMat, resizeW: Int, resizeH: Int,
-                mode: Int = Imgproc.INTER_LINEAR)
+    mode: Int = Imgproc.INTER_LINEAR)
   : OpenCVMat = {
     Imgproc.resize(input, output, new Size(resizeW, resizeH), 0, 0, mode)
     output

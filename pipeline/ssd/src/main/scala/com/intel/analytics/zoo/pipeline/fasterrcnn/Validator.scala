@@ -20,9 +20,12 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.bigdl.pipeline.common.DetectionEvaluator
-import com.intel.analytics.bigdl.pipeline.common.dataset.roiimage._
-import com.intel.analytics.bigdl.utils.Table
+import com.intel.analytics.bigdl.utils.{T, Table}
+import com.intel.analytics.zoo.pipeline.common.DetectionEvaluator
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, RoiImageToBatch, SSDByteRecord, SSDMiniBatch}
+import com.intel.analytics.zoo.transform.vision.image.augmentation.{RandomResize, Resize}
+import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats, RandomTransformer}
+import com.intel.analytics.zoo.transform.vision.label.roi.{RoiNormalize, RoiResize}
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 
@@ -31,14 +34,16 @@ class Validator(model: Module[Float],
   preProcessParam: PreProcessParam,
   postProcessParam: PostProcessParam,
   evaluator: DetectionEvaluator) {
-
-  val preProcessor = RoiImageResizer(preProcessParam.scales,
-    preProcessParam.scaleMultipleOf) ->
-    RoiImageNormalizer(preProcessParam.pixelMeanRGB) -> RoiimageToBatch(1, true)
+  val preProcessor = RecordToFeature(true) ->
+    BytesToMat() ->
+    RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
+    RoiResize() ->
+    MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
+    RoiImageToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
   val postProcessor = new Postprocessor(postProcessParam)
 
-  def test(rdd: RDD[RoiByteImage]): Array[(String, Double)] = {
+  def test(rdd: RDD[SSDByteRecord]): Array[(String, Double)] = {
     Validator.test(rdd, model, preProcessor, postProcessor, evaluator)
   }
 }
@@ -46,8 +51,8 @@ class Validator(model: Module[Float],
 object Validator {
   val logger = Logger.getLogger(this.getClass)
 
-  def test(rdd: RDD[RoiByteImage], model: Module[Float],
-    preProcessor: Transformer[RoiByteImage, MiniBatch[Float]],
+  def test(rdd: RDD[SSDByteRecord], model: Module[Float],
+    preProcessor: Transformer[SSDByteRecord, SSDMiniBatch],
     postProcessor: Postprocessor,
     evaluator: DetectionEvaluator): Array[(String, Double)] = {
     model.evaluate()
@@ -61,7 +66,7 @@ object Validator {
       val localPostProcessor = broadpostprocessor.value.clone()
       val localEvaluator = broadcastEvaluator.value
       dataIter.map(batch => {
-        val data = new Table()
+        val data = T()
         data.insert(batch.data)
         data.insert(batch.imInfo)
         val result = localModel.forward(data).toTable
@@ -76,7 +81,7 @@ object Validator {
     })
 
     val totalTime = (System.nanoTime() - start) / 1e9
-    logger.info(s"[Prediction] ${ recordsNum.value } in $totalTime seconds. Throughput is ${
+    logger.info(s"[Prediction] ${recordsNum.value} in $totalTime seconds. Throughput is ${
       recordsNum.value / totalTime
     } record / sec")
     evaluator.map(output)

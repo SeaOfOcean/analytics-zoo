@@ -45,7 +45,6 @@ object Predict {
     batch: Int = 8,
     visualize: Boolean = true,
     classname: String = "",
-    resolution: Int = 300,
     nPartition: Int = 1)
 
   val predictParamParser = new OptionParser[PredictParam]("Spark-DL Demo") {
@@ -91,9 +90,6 @@ object Predict {
       .text("file store class name")
       .action((x, c) => c.copy(classname = x))
       .required()
-    opt[Int]('r', "resolution")
-      .text("input resolution")
-      .action((x, c) => c.copy(resolution = x))
     opt[Int]('p', "partition")
       .text("number of partitions")
       .action((x, c) => c.copy(nPartition = x))
@@ -111,12 +107,12 @@ object Predict {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(classNames.length),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(),
+            PreProcessParam(params.batch, nPartition = params.nPartition),
             PostProcessParam(0.3f, classNames.length, false, -1, 0))
         case "pvanet" =>
           (Module.loadCaffe(PvanetFRcnn(classNames.length),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(1, Array(640), 32),
+            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition),
             PostProcessParam(0.4f, classNames.length, true, -1, 0))
         case _ =>
           throw new Exception("unsupport network")

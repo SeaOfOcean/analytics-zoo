@@ -17,8 +17,7 @@
 package com.intel.analytics.zoo.pipeline.ssd.example
 
 import com.intel.analytics.bigdl.nn.Module
-import com.intel.analytics.bigdl.pipeline.ssd.IOUtils
-import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
+import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
 import com.intel.analytics.zoo.pipeline.ssd._
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.common.caffe.SSDCaffeLoader
@@ -106,7 +105,8 @@ object Test {
         // load caffe dynamically
         SSDCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
       } else {
-        throw new IllegalArgumentException(s"currently only support loading BigDL model or caffe model")
+        throw new IllegalArgumentException(
+          s"currently only support loading BigDL model or caffe model")
       }
 
       val validator = new Validator(model, PreProcessParam(params.batch, params.resolution,

@@ -189,7 +189,7 @@ object PvanetFRcnn {
     }
 
     seq5.add(inceptions5)
-    seq5.add(SpatialFullConvolution[Tensor[Float], Float](384, 384, 4, 4, 2, 2, 1, 1,
+    seq5.add(SpatialFullConvolution(384, 384, 4, 4, 2, 2, 1, 1,
       nGroup = 384, noBias = true).setName("upsample"))
 
     val concat5 = Concat(2)

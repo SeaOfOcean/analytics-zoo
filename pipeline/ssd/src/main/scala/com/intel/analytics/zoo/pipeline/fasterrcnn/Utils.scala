@@ -27,7 +27,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn
 case class PreProcessParam(batchSize: Int = 1,
   scales: Array[Int] = Array(600), scaleMultipleOf: Int = 1,
   pixelMeanRGB: (Float, Float, Float) = (122.7717f, 115.9465f, 102.9801f),
-  hasLabel: Boolean = false
+  hasLabel: Boolean = false, nPartition: Int
 )
 
 /**

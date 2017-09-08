@@ -17,13 +17,14 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn.example
 
 import com.intel.analytics.bigdl.nn.Module
-import com.intel.analytics.bigdl.pipeline.common.ParamUtil._
-import com.intel.analytics.bigdl.pipeline.common.{IOUtils, PascalVocEvaluator}
-import com.intel.analytics.bigdl.pipeline.fasterrcnn.model.{PvanetFRcnn, VggFRcnn}
-import com.intel.analytics.bigdl.pipeline.fasterrcnn.{PostProcessParam, PreProcessParam, Predictor, Validator}
+import com.intel.analytics.zoo.pipeline.common.IOUtils
 import com.intel.analytics.bigdl.utils.Engine
+import com.intel.analytics.zoo.pipeline.common.PascalVocEvaluator
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{PostProcessParam, PreProcessParam, Validator}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PvanetFRcnn, VggFRcnn}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
+import scopt.OptionParser
 
 object Test {
 
@@ -32,6 +33,53 @@ object Test {
   Logger.getLogger("breeze").setLevel(Level.ERROR)
   Logger.getLogger("com.intel.analytics.bigdl.pipeline.fasterrcnn").setLevel(Level.INFO)
 
+  case class TestParam(folder: String = "",
+    modelType: String = "",
+    imageSet: String = "voc_2007_test",
+    caffeDefPath: String = "",
+    caffeModelPath: String = "",
+    nClass: Int = 21,
+    batch: Int = 1,
+    resolution: Int = 300,
+    nPartition: Int = -1)
+
+  val testParamParser = new OptionParser[TestParam]("Spark-DL Test") {
+    head("Spark-DL Test")
+    opt[String]('f', "folder")
+      .text("where you put the PascolVoc data")
+      .action((x, c) => c.copy(folder = x))
+      .required()
+    opt[String]('t', "modelType")
+      .text("net type : vgg16 | alexnet | pvanet")
+      .action((x, c) => c.copy(modelType = x))
+      .required()
+    opt[String]('i', "imageset")
+      .text("imageset: voc_2007_test")
+      .action((x, c) => c.copy(imageSet = x))
+      .required()
+    opt[String]("caffeDefPath")
+      .text("caffe prototxt")
+      .action((x, c) => c.copy(caffeDefPath = x))
+      .required()
+    opt[String]("caffeModelPath")
+      .text("caffe model path")
+      .action((x, c) => c.copy(caffeModelPath = x))
+      .required()
+    opt[Int]("nclass")
+      .text("class number")
+      .action((x, c) => c.copy(nClass = x))
+      .required()
+    opt[Int]('b', "batch")
+      .text("batch number")
+      .action((x, c) => c.copy(batch = x))
+    opt[Int]('r', "resolution")
+      .text("input resolution 300 or 512")
+      .action((x, c) => c.copy(resolution = x))
+    opt[Int]('p', "partition")
+      .text("number of partitions")
+      .action((x, c) => c.copy(nPartition = x))
+      .required()
+  }
 
   def main(args: Array[String]) {
     testParamParser.parse(args, TestParam()).foreach { params =>
@@ -40,17 +88,17 @@ object Test {
       Engine.init
 
       val evaluator = new PascalVocEvaluator(params.imageSet)
-      val rdd = IOUtils.loadSeqFiles(Engine.nodeNumber * Engine.coreNumber, params.folder, sc)
+      val rdd = IOUtils.loadSeqFiles(params.nPartition, params.folder, sc)
       val (model, preParam, postParam) = params.modelType.toLowerCase() match {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(params.nClass),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(),
+            PreProcessParam(params.batch, nPartition = params.nPartition),
             PostProcessParam(0.3f, params.nClass, false, 100, 0.05))
         case "pvanet" =>
           (Module.loadCaffe(PvanetFRcnn(params.nClass),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(1, Array(640), 32),
+            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition),
             PostProcessParam(0.4f, params.nClass, true, 100, 0.05))
         case _ =>
           throw new Exception("unsupport network")
@@ -58,7 +106,7 @@ object Test {
 
       val validator = new Validator(model, preParam, postParam, evaluator)
 
-      validator.test(rdd)
+      validator.test(rdd._1)
     }
   }
 }

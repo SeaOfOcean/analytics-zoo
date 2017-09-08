@@ -327,7 +327,7 @@ object BboxUtil {
    */
   def bboxVote(scoresNms: Tensor[Float], bboxNms: Tensor[Float],
     scoresAll: Tensor[Float], bboxAll: Tensor[Float],
-    areasBuf: Tensor[Float] = null): (Tensor[Float], Tensor[Float]) = {
+    areasBuf: Tensor[Float] = null): RoiLabel = {
     var accBox: Tensor[Float] = null
     var accScore = 0f
     var box: Tensor[Float] = null
@@ -369,7 +369,7 @@ object BboxUtil {
       }
       i += 1
     }
-    (scoresNms, bboxNms)
+    RoiLabel(scoresNms, bboxNms)
   }
 
   private def getArea(box: Tensor[Float]): Float = {

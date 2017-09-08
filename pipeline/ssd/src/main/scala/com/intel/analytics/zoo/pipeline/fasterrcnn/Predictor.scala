@@ -20,9 +20,11 @@ import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.bigdl.pipeline.common.dataset.roiimage._
-import com.intel.analytics.bigdl.utils.Table
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.RoiImageToBatch
+import com.intel.analytics.bigdl.utils.T
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, RoiImageToBatch, SSDByteRecord, SSDMiniBatch}
+import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
+import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
+import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
 import org.apache.spark.rdd.RDD
 
 class Predictor(
@@ -30,23 +32,25 @@ class Predictor(
   preProcessParam: PreProcessParam,
   postProcessParam: PostProcessParam) {
 
-  val preProcessor = RoiImageResizer(preProcessParam.scales,
-    preProcessParam.scaleMultipleOf) ->
-    RoiImageNormalizer(preProcessParam.pixelMeanRGB) -> RoiImageToBatch(1, false)
+  val preProcessor = RecordToFeature(true) ->
+    BytesToMat() ->
+    RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
+    MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
+    RoiImageToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
   val postProcessor = new Postprocessor(postProcessParam)
 
-  def predict(rdd: RDD[RoiByteImage]): RDD[Array[Target]] = {
+  def predict(rdd: RDD[SSDByteRecord]): RDD[Array[RoiLabel]] = {
     Predictor.predict(rdd, model, preProcessor, postProcessor)
   }
 }
 
 object Predictor {
-  def predict(rdd: RDD[RoiByteImage],
+  def predict(rdd: RDD[SSDByteRecord],
     model: Module[Float],
-    preProcessor: Transformer[RoiByteImage, MiniBatch[Float]],
+    preProcessor: Transformer[SSDByteRecord, SSDMiniBatch],
     postProcessor: Postprocessor
-  ): RDD[Array[Target]] = {
+  ): RDD[Array[RoiLabel]] = {
     model.evaluate()
     val broadcastModel = ModelBroadcast().broadcast(rdd.sparkContext, model)
     val broadpostprocessor = rdd.sparkContext.broadcast(postProcessor)
@@ -54,8 +58,8 @@ object Predictor {
       val localModel = broadcastModel.value()
       val localPostProcessor = broadpostprocessor.value.clone()
       dataIter.map(batch => {
-        val data = new Table
-        data.insert(batch.data)
+        val data = T()
+        data.insert(batch.input)
         data.insert(batch.imInfo)
         val result = localModel.forward(data).toTable
         localPostProcessor.process(result, batch.imInfo)

@@ -16,6 +16,7 @@
 
 package com.intel.analytics.zoo.transform.vision.label.roi
 
+import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.zoo.transform.vision.image.{FeatureTransformer, ImageFeature}
 import com.intel.analytics.zoo.transform.vision.util.{BboxUtil, NormalizedBox}
 
@@ -102,10 +103,32 @@ case class RoiExpand() extends FeatureTransformer {
   }
 }
 
+case class RoiResize() extends FeatureTransformer {
+  override def transformMat(feature: ImageFeature): Unit = {
+    require(feature.hasLabel())
+    val scaledW = feature.getOriginalWidth / feature.getWidth().toFloat
+    val scaledH = feature.getOriginalHeight / feature.getHeight().toFloat
+    val target = feature.getLabel[RoiLabel]
+    val gtInds = target.classes.storage().array().zip(Stream from 1)
+      .filter(x => x._1 != 0).map(x => x._2)
+    val resizedBoxes = Tensor[Float](gtInds.length, 5)
+    var i = 0
+    while (i < gtInds.length) {
+      resizedBoxes.setValue(i + 1, 1, target.bboxes.valueAt(gtInds(i), 1) * scaledH)
+      resizedBoxes.setValue(i + 1, 2, target.bboxes.valueAt(gtInds(i), 2) * scaledW)
+      resizedBoxes.setValue(i + 1, 3, target.bboxes.valueAt(gtInds(i), 3) * scaledH)
+      resizedBoxes.setValue(i + 1, 4, target.bboxes.valueAt(gtInds(i), 4) * scaledW)
+      resizedBoxes.setValue(i + 1, 5, target.classes.valueAt(gtInds(i)))
+      i += 1
+    }
+    target.bboxes.resizeAs(resizedBoxes).copy(resizedBoxes)
+  }
+}
+
 object AnnotationTransformer {
   def transformAnnotation(imgWidth: Int, imgHeigth: Int, cropedBox: NormalizedBox,
-                          doMirror: Boolean, target: RoiLabel,
-                          transformd: ArrayBuffer[NormalizedBox]): Unit = {
+    doMirror: Boolean, target: RoiLabel,
+    transformd: ArrayBuffer[NormalizedBox]): Unit = {
     var i = 1
     while (target.bboxes.nElement() > 0 && i <= target.bboxes.size(1)) {
       val resizedBox = NormalizedBox(target.bboxes.valueAt(i, 1),
