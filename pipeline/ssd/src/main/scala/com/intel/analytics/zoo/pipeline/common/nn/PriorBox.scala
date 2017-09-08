@@ -58,12 +58,6 @@ class PriorBox[T: ClassTag](minSizes: Array[Float], maxSizes: Array[Float] = nul
 
   init()
 
-  override def clearState(): PriorBox.this.type = {
-    super.clearState()
-    if (aspectRatios != null) aspectRatios = null
-    this
-  }
-
   private def init(): Unit = {
     require(minSizes != null && minSizes.length > 0, "must provide minSize")
     if (aspectRatios == null) aspectRatios = new ArrayBuffer[Float]()
