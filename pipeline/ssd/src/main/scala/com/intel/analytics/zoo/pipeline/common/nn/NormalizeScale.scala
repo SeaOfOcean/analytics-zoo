@@ -25,6 +25,7 @@ import com.intel.analytics.bigdl.utils.{T, Table}
 
 import scala.reflect.ClassTag
 
+@SerialVersionUID(9119687669942119523L)
 class NormalizeScale[T: ClassTag](val p: Double, val eps: Double = 1e-10,
   val scale: Double, size: Array[Int],
   var wRegularizer: Regularizer[T] = null)(implicit ev: TensorNumeric[T])
@@ -59,6 +60,13 @@ class NormalizeScale[T: ClassTag](val p: Double, val eps: Double = 1e-10,
 
   override def getParametersTable(): Table = {
     T(getName() -> T("weight" -> cmul.weight, "gradWeight" -> cmul.gradWeight))
+  }
+
+  override def clearState(): this.type = {
+    super.clearState()
+    normalize.clearState()
+    cmul.clearState()
+    this
   }
 }
 

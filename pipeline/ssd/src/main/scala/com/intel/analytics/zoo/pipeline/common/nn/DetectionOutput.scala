@@ -243,6 +243,7 @@ class DetectionOutput[T: ClassTag](param: PostProcessParam, postProcess: Boolean
   }
 
   override def clearState(): DetectionOutput.this.type = {
+    super.clearState()
     nms = null
     allLocPreds = null
     allConfScores = null

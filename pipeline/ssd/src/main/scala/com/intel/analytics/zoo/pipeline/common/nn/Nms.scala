@@ -23,6 +23,7 @@ import com.intel.analytics.bigdl.tensor.Tensor
  * The goal of nms is to solve the problem that groups of several detections near the real location,
  * ideally obtaining only one detection per object
  */
+@SerialVersionUID(- 809748859258243317L)
 class Nms extends Serializable {
 
   @transient private var areas: Array[Float] = _

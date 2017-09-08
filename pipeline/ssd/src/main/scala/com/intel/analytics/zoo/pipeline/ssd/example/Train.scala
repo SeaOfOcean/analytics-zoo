@@ -21,6 +21,7 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.MiniBatch
 import com.intel.analytics.bigdl.nn.Module
 import com.intel.analytics.bigdl.optim.{Optimizer, _}
+import com.intel.analytics.bigdl.pipeline.common.MultistepWithWarm
 import com.intel.analytics.bigdl.pipeline.ssd.IOUtils
 import com.intel.analytics.zoo.pipeline.common.nn.{MultiBoxLoss, MultiBoxLossParam}
 import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
@@ -48,6 +49,7 @@ object Option {
     stateSnapshot: Option[String] = None,
     classNumber: Int = 21,
     batchSize: Int = -1,
+    warmLearningRate: Double = 0.0001,
     learningRate: Double = 0.001,
     schedule: String = "multistep",
     learningRateDecay: Double = 0.1,
@@ -103,6 +105,10 @@ object Option {
     opt[Double]('l', "learningRate")
       .text("inital learning rate")
       .action((x, c) => c.copy(learningRate = x))
+      .required()
+    opt[Double]("warmLearningRate")
+      .text("warm up learning rate")
+      .action((x, c) => c.copy(warmLearningRate = x))
       .required()
     opt[String]("schedule")
       .text("learning rate schedule")
@@ -177,7 +183,7 @@ object Train {
 
       val warmUpModel = if (param.warmUpMap.isDefined) {
         val optimMethod = new Adam[Float](
-          learningRate = 0.0001,
+          learningRate = param.warmLearningRate,
           learningRateDecay = 0.0005
         )
         optimize(model, trainSet, valSet, param, optimMethod,
@@ -197,7 +203,7 @@ object Train {
               Array[Int](80000 / 32 * param.batchSize, 100000 / 32 * param.batchSize,
                 120000 / 32 * param.batchSize)
             }
-            SGD.MultiStep(steps, param.learningRateDecay)
+            MultistepWithWarm(steps, param.learningRateDecay, 16551 * 5 / param.batchSize, 0.001)
           case "plateau" =>
             SGD.Plateau(monitor = "score",
               factor = param.learningRateDecay.toFloat,
