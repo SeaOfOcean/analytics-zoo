@@ -109,7 +109,6 @@ object Option {
     opt[Double]("warmLearningRate")
       .text("warm up learning rate")
       .action((x, c) => c.copy(warmLearningRate = x))
-      .required()
     opt[String]("schedule")
       .text("learning rate schedule")
       .action((x, c) => c.copy(schedule = x))
