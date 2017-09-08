@@ -12,19 +12,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package com.intel.analytics.zoo.pipeline.ssd.example
+package com.intel.analytics.zoo.pipeline.fasterrcnn.example
 
+import com.intel.analytics.bigdl.dataset.image.Visualizer
 import com.intel.analytics.bigdl.nn.Module
-import com.intel.analytics.zoo.pipeline.common.{BboxUtil, IOUtils}
-import com.intel.analytics.zoo.pipeline.common.caffe.SSDCaffeLoader
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.Visualizer
-import com.intel.analytics.zoo.pipeline.ssd._
-import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PvanetFRcnn, VggFRcnn}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{PostProcessParam, PreProcessParam, Predictor}
 import com.intel.analytics.bigdl.utils.Engine
-import com.intel.analytics.zoo.pipeline.ssd.model.PreProcessParam
+import com.intel.analytics.zoo.pipeline.common.IOUtils
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser
@@ -35,27 +32,24 @@ object Predict {
   Logger.getLogger("org").setLevel(Level.ERROR)
   Logger.getLogger("akka").setLevel(Level.ERROR)
   Logger.getLogger("breeze").setLevel(Level.ERROR)
-  Logger.getLogger("com.intel.analytics.zoo.pipeline.ssd").setLevel(Level.INFO)
+  Logger.getLogger("com.intel.analytics.bigdl.pipeline.fasterrcnn").setLevel(Level.INFO)
 
   val logger = Logger.getLogger(getClass)
 
-  case class PascolVocDemoParam(imageFolder: String = "",
+  case class PredictParam(imageFolder: String = "",
     outputFolder: String = "data/demo",
     folderType: String = "local",
     modelType: String = "vgg16",
-    model: Option[String] = None,
-    caffeDefPath: Option[String] = None,
-    caffeModelPath: Option[String] = None,
+    caffeDefPath: String = "",
+    caffeModelPath: String = "",
     batch: Int = 8,
-    savetxt: Boolean = true,
-    vis: Boolean = true,
+    visualize: Boolean = true,
     classname: String = "",
     resolution: Int = 300,
-    topK: Option[Int] = None,
     nPartition: Int = 1)
 
-  val parser = new OptionParser[PascolVocDemoParam]("BigDL SSD Demo") {
-    head("BigDL SSD Demo")
+  val predictParamParser = new OptionParser[PredictParam]("Spark-DL Demo") {
+    head("Spark-DL Demo")
     opt[String]('f', "folder")
       .text("where you put the demo image data")
       .action((x, c) => c.copy(imageFolder = x))
@@ -76,38 +70,30 @@ object Predict {
       .action((x, c) => c.copy(outputFolder = x))
       .required()
     opt[String]('t', "modelType")
-      .text("net type : vgg16 | alexnet")
+      .text("net type : vgg16 | alexnet | pvanet")
       .action((x, c) => c.copy(modelType = x))
       .required()
-    opt[String]("model")
-      .text("BigDL model")
-      .action((x, c) => c.copy(model = Some(x)))
     opt[String]("caffeDefPath")
       .text("caffe prototxt")
-      .action((x, c) => c.copy(caffeDefPath = Some(x)))
+      .action((x, c) => c.copy(caffeDefPath = x))
+      .required()
     opt[String]("caffeModelPath")
       .text("caffe model path")
-      .action((x, c) => c.copy(caffeModelPath = Some(x)))
+      .action((x, c) => c.copy(caffeModelPath = x))
+      .required()
     opt[Int]('b', "batch")
       .text("batch number")
       .action((x, c) => c.copy(batch = x))
-    opt[Boolean]('s', "savetxt")
-      .text("whether to save detection results")
-      .action((x, c) => c.copy(savetxt = x))
-    opt[Boolean]('v', "vis")
+    opt[Boolean]('v', "visualize")
       .text("whether to visualize the detections")
-      .action((x, c) => c.copy(vis = x))
+      .action((x, c) => c.copy(visualize = x))
     opt[String]("classname")
       .text("file store class name")
       .action((x, c) => c.copy(classname = x))
       .required()
     opt[Int]('r', "resolution")
-      .text("input resolution 300 or 512")
+      .text("input resolution")
       .action((x, c) => c.copy(resolution = x))
-      .required()
-    opt[Int]('k', "topk")
-      .text("return topk results")
-      .action((x, c) => c.copy(topK = Some(x)))
     opt[Int]('p', "partition")
       .text("number of partitions")
       .action((x, c) => c.copy(nPartition = x))
@@ -115,22 +101,25 @@ object Predict {
   }
 
   def main(args: Array[String]): Unit = {
-    parser.parse(args, PascolVocDemoParam()).foreach { params =>
-      val conf = Engine.createSparkConf().setAppName("BigDL SSD Demo")
+    predictParamParser.parse(args, PredictParam()).foreach { params =>
+      val conf = Engine.createSparkConf().setAppName("Spark-DL Faster RCNN Demo")
       val sc = new SparkContext(conf)
       Engine.init
 
       val classNames = Source.fromFile(params.classname).getLines().toArray
-
-      val model = if (params.model.isDefined) {
-        // load BigDL model
-        Module.load[Float](params.model.get)
-      } else if (params.caffeDefPath.isDefined && params.caffeModelPath.isDefined) {
-        // load caffe dynamically
-        SSDCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
-      } else {
-        throw new IllegalArgumentException(s"currently only support" +
-          s" loading BigDL model or caffe model")
+      val (model, preParam, postParam) = params.modelType match {
+        case "vgg16" =>
+          (Module.loadCaffe(VggFRcnn(classNames.length),
+            params.caffeDefPath, params.caffeModelPath),
+            PreProcessParam(),
+            PostProcessParam(0.3f, classNames.length, false, -1, 0))
+        case "pvanet" =>
+          (Module.loadCaffe(PvanetFRcnn(classNames.length),
+            params.caffeDefPath, params.caffeModelPath),
+            PreProcessParam(1, Array(640), 32),
+            PostProcessParam(0.4f, classNames.length, true, -1, 0))
+        case _ =>
+          throw new Exception("unsupport network")
       }
 
       val (data, paths) = params.folderType match {
@@ -139,36 +128,26 @@ object Predict {
         case _ => throw new IllegalArgumentException(s"invalid folder name ${ params.folderType }")
       }
 
-      val predictor = new SSDPredictor(model,
-        PreProcessParam(params.batch, params.resolution, (123f, 117f, 104f), false, params.nPartition))
+      val predictor = new Predictor(model, preParam, postParam)
 
       val start = System.nanoTime()
-      val output = predictor.predict(data)
-      if (params.vis) output.cache()
-
-      if (params.savetxt) {
-        output.zip(paths).map { case (res: Tensor[Float], path: String) =>
-          BboxUtil.resultToString(res, path)
-        }.saveAsTextFile(params.outputFolder)
-      } else {
-        output.count()
-      }
-
-      val recordsNum = paths.count()
+      val output = predictor.predict(data).collect()
+      val recordsNum = output.length
       val totalTime = (System.nanoTime() - start) / 1e9
       logger.info(s"[Prediction] ${ recordsNum } in $totalTime seconds. Throughput is ${
         recordsNum / totalTime
       } record / sec")
 
-      if (params.vis) {
-        if (params.folderType == "seq") {
-          logger.warn("currently only support visualize local folder in Predict")
-          return
-        }
-
-        paths.zip(output).foreach(pair => {
-          val decoded = BboxUtil.decodeRois(pair._2)
-          Visualizer.visDetection(pair._1, decoded, classNames, outPath = params.outputFolder)
+      if (params.visualize) {
+        data.map(_.path).zipWithIndex.foreach(pair => {
+          var classIndex = 1
+          val imgId = pair._2.toInt
+          while (classIndex < classNames.length) {
+            Visualizer.visDetection(pair._1, classNames(classIndex),
+              output(imgId)(classIndex).classes,
+              output(imgId)(classIndex).bboxes, thresh = 0.6f, outPath = params.outputFolder)
+            classIndex += 1
+          }
         })
         logger.info(s"labeled images are saved to ${ params.outputFolder }")
       }

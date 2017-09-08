@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.intel.analytics.bigdl.pipeline.ssd
+package com.intel.analytics.zoo.pipeline.common
 
 import java.io.File
 
