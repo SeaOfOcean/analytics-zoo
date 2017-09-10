@@ -21,16 +21,16 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.MiniBatch
 import com.intel.analytics.bigdl.nn.Module
 import com.intel.analytics.bigdl.optim.{Optimizer, _}
-import com.intel.analytics.bigdl.pipeline.common.MultistepWithWarm
+import com.intel.analytics.bigdl.pipeline.common.{MultistepWithWarm, PlateauWithWarm}
 import com.intel.analytics.bigdl.pipeline.ssd.IOUtils
-import com.intel.analytics.zoo.pipeline.common.nn.{MultiBoxLoss, MultiBoxLossParam}
-import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
-import com.intel.analytics.zoo.pipeline.common.caffe.CaffeLoader
-import com.intel.analytics.zoo.pipeline.ssd.model.SSDVgg
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
+import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
+import com.intel.analytics.zoo.pipeline.common.caffe.CaffeLoader
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.SSDMiniBatch
+import com.intel.analytics.zoo.pipeline.common.nn.{MultiBoxLoss, MultiBoxLossParam}
+import com.intel.analytics.zoo.pipeline.ssd.model.SSDVgg
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser
@@ -204,9 +204,11 @@ object Train {
             }
             MultistepWithWarm(steps, param.learningRateDecay, 16551 * 5 / param.batchSize, 0.001)
           case "plateau" =>
-            SGD.Plateau(monitor = "score",
+            PlateauWithWarm(monitor = "score",
               factor = param.learningRateDecay.toFloat,
-              patience = param.patience, minLr = 1e-5f, mode = "max")
+              patience = param.patience, minLr = 1e-5f, mode = "max",
+              warmUpIteration = 16551 * 5 / param.batchSize,
+              startWarnLr = 0.001)
         }
         new SGD[Float](
           learningRate = param.learningRate,

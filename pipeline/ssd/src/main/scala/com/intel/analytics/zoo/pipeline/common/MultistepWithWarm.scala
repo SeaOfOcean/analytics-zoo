@@ -27,9 +27,9 @@ case class MultistepWithWarm(stepSizes: Array[Int], gamma: Double, warmUpIterati
   override def updateHyperParameter[T](optimMethod: SGD[T]): Unit = {
     val lr = optimMethod.learningRate
     var clr = -lr
-    val warmUpDelta = (lr - minLr) / warmUpIteration
     val nevals = optimMethod.state.get[Int]("evalCounter").getOrElse(0)
     if (nevals < warmUpIteration) {
+      val warmUpDelta = (lr - minLr) / warmUpIteration
       clr = -minLr - warmUpDelta * nevals
     } else {
       var currentStep = 0
