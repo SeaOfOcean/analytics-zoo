@@ -20,12 +20,10 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.pipeline.common.DetectionEvaluator
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
-import com.intel.analytics.zoo.transform.vision.label.roi.RoiResize
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 
@@ -37,7 +35,6 @@ class Validator(model: Module[Float],
   val preProcessor = RecordToFeature(true) ->
     BytesToMat() ->
     RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
-    RoiResize() ->
     MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
     FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
@@ -66,13 +63,10 @@ object Validator {
       val localPostProcessor = broadpostprocessor.value.clone()
       val localEvaluator = broadcastEvaluator.value
       dataIter.map(batch => {
-        val data = T()
-        data.insert(batch.data)
-        data.insert(batch.imInfo)
-        val result = localModel.forward(data).toTable
+        val result = localModel.forward(batch.input).toTable
         val out = localPostProcessor.process(result, batch.imInfo)
         recordsNum += 1
-        localEvaluator.evaluateBatch(Array(out), batch.labels)
+        localEvaluator.evaluateBatch(Array(out), batch.target)
       })
     }).reduce((left, right) => {
       left.zip(right).map { case (l, r) =>

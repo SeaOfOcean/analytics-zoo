@@ -42,6 +42,6 @@ class FrcnnMiniBatch(val input: Table, val target: Tensor[Float],
 
 object FrcnnMiniBatch {
   def apply(input: Table, target: Tensor[Float], imInfo: Tensor[Float] = null): FrcnnMiniBatch = {
-    FrcnnMiniBatch(input, target, imInfo)
+    new FrcnnMiniBatch(input, target, imInfo)
   }
 }

@@ -65,13 +65,16 @@ class FrcnnToBatch(totalBatch: Int,
             }
             require(feature.contains(inputKey), s"there should be ${inputKey} in ImageFeature")
             val data = feature.getFloats(inputKey)
+            // hwc to chw
             val featureTensor = Tensor(Storage(data))
-              .resize(1, 3, feature.getHeight(), feature.getWidth())
+              .resize(1, feature.getHeight(), feature.getWidth(), 3).transpose(2, 4).transpose(3, 4)
+              .contiguous()
             featureBatch.insert(featureTensor)
+            featureBatch.insert(imInfoTensor)
             imInfoData(i * 4) = height
             imInfoData(i * 4 + 1) = width
-            imInfoData(i * 4 + 2) = feature.getOriginalHeight / height.toFloat
-            imInfoData(i * 4 + 3) = feature.getOriginalWidth / width.toFloat
+            imInfoData(i * 4 + 2) = height.toFloat / feature.getOriginalHeight
+            imInfoData(i * 4 + 3) = width.toFloat / feature.getOriginalWidth
             if (convertLabel) {
               require(feature.hasLabel(), "if convert label, there should be label")
               val target = feature.getLabel[RoiLabel]

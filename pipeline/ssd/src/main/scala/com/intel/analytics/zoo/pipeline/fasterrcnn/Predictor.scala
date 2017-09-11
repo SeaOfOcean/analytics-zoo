@@ -20,7 +20,6 @@ import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
@@ -58,10 +57,7 @@ object Predictor {
       val localModel = broadcastModel.value()
       val localPostProcessor = broadpostprocessor.value.clone()
       dataIter.map(batch => {
-        val data = T()
-        data.insert(batch.input)
-        data.insert(batch.imInfo)
-        val result = localModel.forward(data).toTable
+        val result = localModel.forward(batch.getInput()).toTable
         localPostProcessor.process(result, batch.imInfo)
       })
     })

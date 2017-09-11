@@ -40,7 +40,6 @@ object Test {
     caffeModelPath: String = "",
     nClass: Int = 21,
     batch: Int = 1,
-    resolution: Int = 300,
     nPartition: Int = -1)
 
   val testParamParser = new OptionParser[TestParam]("Spark-DL Test") {
@@ -72,9 +71,6 @@ object Test {
     opt[Int]('b', "batch")
       .text("batch number")
       .action((x, c) => c.copy(batch = x))
-    opt[Int]('r', "resolution")
-      .text("input resolution 300 or 512")
-      .action((x, c) => c.copy(resolution = x))
     opt[Int]('p', "partition")
       .text("number of partitions")
       .action((x, c) => c.copy(nPartition = x))

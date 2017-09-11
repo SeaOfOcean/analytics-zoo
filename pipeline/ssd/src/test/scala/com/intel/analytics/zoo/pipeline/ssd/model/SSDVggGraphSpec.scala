@@ -22,7 +22,7 @@ import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.SGD
 import com.intel.analytics.zoo.pipeline.common.nn.{MultiBoxLoss, MultiBoxLossParam, PriorBox}
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
-import com.intel.analytics.bigdl.utils.{T, Table}
+import com.intel.analytics.bigdl.utils.{File, T, Table}
 import org.scalatest.{FlatSpec, Matchers}
 
 class SSDVggGraphSpec extends FlatSpec with Matchers {

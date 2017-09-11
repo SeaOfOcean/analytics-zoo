@@ -18,17 +18,20 @@ package com.intel.analytics.zoo.pipeline.common.dataset.roiimage
 
 import java.io.File
 
+import com.intel.analytics.bigdl.utils.Engine
+import com.intel.analytics.zoo.pipeline.common.IOUtils
 import com.intel.analytics.zoo.pipeline.common.dataset.{Imdb, LocalByteRoiimageReader}
-import com.intel.analytics.zoo.transform.vision.image.augmentation.{ColorJitter, Expand, HFlip, Resize}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnToBatch, PreProcessParam}
+import com.intel.analytics.zoo.transform.vision.image.augmentation._
 import com.intel.analytics.zoo.transform.vision.image.opencv.OpenCVMat
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats, RandomTransformer}
 import com.intel.analytics.zoo.transform.vision.label.roi._
+import org.apache.spark.SparkContext
 import org.opencv.core.{Mat, Point, Scalar}
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
-//
 class DataAugmentationSpec extends FlatSpec with Matchers with BeforeAndAfter {
   def visulize(label: RoiLabel, mat: Mat): Unit = {
     var i = 1
@@ -67,5 +70,23 @@ class DataAugmentationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     })
 
   }
-}
 
+  "faster rcnn preprocess" should "work properly" in {
+    import scala.sys.process._
+    val conf = Engine.createSparkConf().setAppName("Spark-DL Faster RCNN Demo")
+      .setMaster("local[2]")
+    val sc = new SparkContext(conf)
+    Engine.init
+
+    val preProcessParam = PreProcessParam(2, nPartition = 2)
+    val resource = getClass().getClassLoader().getResource("VOCdevkit/VOC2007/JPEGImages")
+    val data = IOUtils.loadLocalFolder(2, "/home/jxy/data/some", sc)
+    val preProcessor = RecordToFeature(true) ->
+      BytesToMat() ->
+      RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
+      MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
+      FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
+    val out = preProcessor(data._1).collect()
+    println(out)
+  }
+}
