@@ -14,30 +14,44 @@
  * limitations under the License.
  */
 
-package com.intel.analytics.zoo.pipeline.fasterrcnn
+package com.intel.analytics.bigdl.pipeline.fasterrcnn
 
-/**
- * Preprocess parameters
- * @param batchSize should be 1
- * @param scales Each scale is the pixel size of an image"s shortest side, can contain multiple
- * @param scaleMultipleOf Resize test images so that its width and height are multiples of ...
- * @param pixelMeanRGB mean value to be sub from
- * @param hasLabel whether data contains label, default is false
- */
-case class PreProcessParam(batchSize: Int = 1,
-  scales: Array[Int] = Array(600), scaleMultipleOf: Int = 1,
-  pixelMeanRGB: (Float, Float, Float) = (122.7717f, 115.9465f, 102.9801f),
-  hasLabel: Boolean = false, nPartition: Int
-)
+import com.intel.analytics.bigdl.DataSet
+import com.intel.analytics.bigdl.dataset.DataSet
+import com.intel.analytics.bigdl.utils.Engine
+import com.intel.analytics.zoo.pipeline.common.IOUtils
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, RoiImageToBatch, SSDMiniBatch}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnMiniBatch, FrcnnToBatch}
+import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
+import com.intel.analytics.zoo.transform.vision.image.augmentation.{RandomResize, Resize}
+import com.intel.analytics.zoo.transform.vision.label.roi._
+import org.apache.spark.SparkContext
 
-/**
- * post process parameters
- * @param nmsThresh Overlap threshold used for non-maximum suppression (suppress boxes with
- * IoU >= this threshold)
- * @param nClasses number of classes
- * @param bboxVote whether apply bounding box voting
- * @param maxPerImage
- * @param thresh
- */
-case class PostProcessParam(nmsThresh: Float = 0.3f, nClasses: Int,
-  bboxVote: Boolean, maxPerImage: Int = 100, thresh: Double = 0.05)
+
+object Utils {
+  def loadTrainSet(folder: String, sc: SparkContext, param: PreProcessParam, batchSize: Int)
+  : DataSet[FrcnnMiniBatch] = {
+    val trainRdd = IOUtils.loadSeqFiles(Engine.nodeNumber, folder, sc)._1
+    DataSet.rdd(trainRdd) -> RecordToFeature(true) ->
+      BytesToMat() ->
+      RandomResize(param.scales, param.scaleMultipleOf) ->
+      RoiResize() ->
+      MatToFloats(validHeight = 600, validWidth = 600,
+        meanRGB = Some(122.7717f, 115.9465f, 102.9801f)) ->
+      FrcnnToBatch(batchSize)
+  }
+
+  def loadValSet(folder: String, sc: SparkContext, resolution: Int, batchSize: Int)
+  : DataSet[SSDMiniBatch] = {
+    val valRdd = IOUtils.loadSeqFiles(Engine.nodeNumber, folder, sc)._1
+
+    DataSet.rdd(valRdd) -> RecordToFeature(true) ->
+      BytesToMat() ->
+      RoiNormalize() ->
+      Resize(resolution, resolution) ->
+      MatToFloats(validHeight = resolution, validWidth = resolution,
+        meanRGB = Some(123f, 117f, 104f)) ->
+      RoiImageToBatch(batchSize)
+  }
+}

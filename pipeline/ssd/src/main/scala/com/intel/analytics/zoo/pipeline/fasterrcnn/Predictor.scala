@@ -21,6 +21,7 @@ import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel

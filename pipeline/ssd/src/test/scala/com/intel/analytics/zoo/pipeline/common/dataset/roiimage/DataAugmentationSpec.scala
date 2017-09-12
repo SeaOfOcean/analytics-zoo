@@ -21,7 +21,8 @@ import java.io.File
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.common.IOUtils
 import com.intel.analytics.zoo.pipeline.common.dataset.{Imdb, LocalByteRoiimageReader}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnToBatch, PreProcessParam}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.FrcnnToBatch
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
 import com.intel.analytics.zoo.transform.vision.image.augmentation._
 import com.intel.analytics.zoo.transform.vision.image.opencv.OpenCVMat
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats, RandomTransformer}

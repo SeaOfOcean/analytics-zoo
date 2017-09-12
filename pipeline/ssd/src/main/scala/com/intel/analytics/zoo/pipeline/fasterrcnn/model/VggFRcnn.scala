@@ -17,98 +17,111 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
 import com.intel.analytics.bigdl.Module
+import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
+import com.intel.analytics.zoo.pipeline.common.nn.Proposal
 import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnn._
+import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
 
 object VggFRcnn {
 
-  def vgg16(): Sequential[Float] = {
-    val vggNet = Sequential()
-    def addConvRelu(param: (Int, Int, Int, Int, Int), name: String)
-    : Unit = {
-      vggNet.add(conv(param, s"conv$name"))
-      vggNet.add(ReLU(true).setName(s"relu$name"))
-    }
-    addConvRelu((3, 64, 3, 1, 1), "1_1")
-    addConvRelu((64, 64, 3, 1, 1), "1_2")
-    vggNet.add(SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool1"))
-
-    addConvRelu((64, 128, 3, 1, 1), "2_1")
-    addConvRelu((128, 128, 3, 1, 1), "2_2")
-    vggNet.add(SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool2"))
-
-    addConvRelu((128, 256, 3, 1, 1), "3_1")
-    addConvRelu((256, 256, 3, 1, 1), "3_2")
-    addConvRelu((256, 256, 3, 1, 1), "3_3")
-    vggNet.add(SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool3"))
-
-    addConvRelu((256, 512, 3, 1, 1), "4_1")
-    addConvRelu((512, 512, 3, 1, 1), "4_2")
-    addConvRelu((512, 512, 3, 1, 1), "4_3")
-    vggNet.add(SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool4"))
-
-    addConvRelu((512, 512, 3, 1, 1), "5_1")
-    addConvRelu((512, 512, 3, 1, 1), "5_2")
-    addConvRelu((512, 512, 3, 1, 1), "5_3")
-    vggNet
+  private[pipeline] def addConvRelu(prevNodes: ModuleNode[Float], p: (Int, Int, Int, Int, Int),
+    name: String, prefix: String = "conv", nGroup: Int = 1, propogateBack: Boolean = true)
+  : ModuleNode[Float] = {
+    val conv = SpatialConvolution(p._1, p._2, p._3, p._3, p._4, p._4,
+      p._5, p._5, nGroup = nGroup, propagateBack = propogateBack)
+      .setInitMethod(weightInitMethod = Xavier, biasInitMethod = Zeros)
+      .setName(s"$prefix$name").inputs(prevNodes)
+    ReLU(true).setName(s"relu$name").inputs(conv)
   }
 
-  private def rpn(anchorNum: Int): Sequential[Float] = {
-    val rpnModel = Sequential()
-    rpnModel.add(conv((512, 512, 3, 1, 1), "rpn_conv/3x3"))
-    rpnModel.add(ReLU(true).setName("rpn_relu/3x3"))
-    val clsAndReg = ConcatTable()
-    val clsSeq = Sequential()
-    clsSeq.add(conv((512, 18, 1, 1, 0), "rpn_cls_score"))
-    clsSeq.add(InferReshape(Array(0, 2, -1, 0)))
-    clsSeq.add(SoftMax()).add(InferReshape(Array(1, 2 * anchorNum, -1, 0)))
-    clsAndReg.add(clsSeq)
-      .add(conv((512, 36, 1, 1, 0), "rpn_bbox_pred"))
-    rpnModel.add(clsAndReg)
-    rpnModel
+
+  def vgg16(data: ModuleNode[Float]): ModuleNode[Float] = {
+    val conv1_1 = SpatialConvolution(3, 64, 3, 3, 1, 1, 1, 1, propagateBack = false)
+      .setInitMethod(weightInitMethod = Xavier, biasInitMethod = Zeros)
+      .setName(s"conv1_1").inputs(data)
+    val relu1_1 = ReLU(true).setName(s"relu1_1").inputs(conv1_1)
+    val relu1_2 = addConvRelu(relu1_1, (64, 64, 3, 1, 1), "1_2")
+    val pool1 = SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool1").inputs(relu1_2)
+
+    val relu2_1 = addConvRelu(pool1, (64, 128, 3, 1, 1), "2_1")
+    val relu2_2 = addConvRelu(relu2_1, (128, 128, 3, 1, 1), "2_2")
+    val pool2 = SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool2").inputs(relu2_2)
+
+    val relu3_1 = addConvRelu(pool2, (128, 256, 3, 1, 1), "3_1")
+    val relu3_2 = addConvRelu(relu3_1, (256, 256, 3, 1, 1), "3_2")
+    val relu3_3 = addConvRelu(relu3_2, (256, 256, 3, 1, 1), "3_3")
+    val pool3 = SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool3").inputs(relu3_3)
+
+    val relu4_1 = addConvRelu(pool3, (256, 512, 3, 1, 1), "4_1")
+    val relu4_2 = addConvRelu(relu4_1, (512, 512, 3, 1, 1), "4_2")
+    val relu4_3 = addConvRelu(relu4_2, (512, 512, 3, 1, 1), "4_3")
+
+    val pool4 = SpatialMaxPooling(2, 2, 2, 2).ceil().setName("pool4").inputs(relu4_3)
+    val relu5_1 = addConvRelu(pool4, (512, 512, 3, 1, 1), "5_1")
+    val relu5_2 = addConvRelu(relu5_1, (512, 512, 3, 1, 1), "5_2")
+    val relu5_3 = addConvRelu(relu5_2, (512, 512, 3, 1, 1), "5_3")
+    relu5_3
   }
 
-  def baseAndRpn(anchorNum: Int): Sequential[Float] = {
-    val compose = Sequential()
-    compose.add(vgg16())
-    val vggRpnModel = ConcatTable()
-    vggRpnModel.add(rpn(anchorNum))
-    vggRpnModel.add(Identity())
-    compose.add(vggRpnModel)
-    compose
+  private def rpn(input: ModuleNode[Float],
+    imInfo: ModuleNode[Float]): ModuleNode[Float] = {
+    val rpn_conv_3x3 = SpatialConvolution(512, 512, 3, 3, 1, 1, 1, 1)
+      .setName("rpn_conv/3x3").inputs(input)
+    val relu3x3 = ReLU(true).setName("rpn_relu/3x3").inputs(rpn_conv_3x3)
+    val rpn_cls_score = SpatialConvolution(512, 18, 1, 1, 1, 1)
+      .setName("rpn_cls_score").inputs(relu3x3)
+    val rpn_cls_score_reshape = InferReshape(Array(0, 2, -1, 0)).inputs(rpn_cls_score)
+    val rpn_cls_prob = SoftMax().setName("rpn_cls_prob").inputs(rpn_cls_score_reshape)
+    val rpn_cls_prob_reshape = InferReshape(Array(1, 2 * anchorParam.num, -1, 0))
+      .setName("rpn_cls_prob_reshape").inputs(rpn_cls_prob)
+    val rpn_bbox_pred = SpatialConvolution(512, 36, 1, 1, 1, 1).setName("rpn_bbox_pred")
+      .inputs(relu3x3)
+    val proposal = Proposal(preNmsTopN = rpnPreNmsTopN,
+      postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam)
+      .inputs(rpn_cls_prob_reshape, rpn_bbox_pred, imInfo)
+    proposal
   }
 
-  def fastRcnn(): Sequential[Float] = {
+//  def baseAndRpn(anchorNum: Int): Sequential[Float] = {
+//    val relu5_3 = vgg16()
+//
+//    val vggRpnModel = ConcatTable()
+//    vggRpnModel.add(rpn(anchorNum))
+//    vggRpnModel.add(Identity())
+//    compose.add(vggRpnModel)
+//    compose
+//  }
+
+  def fastRcnn(feature: ModuleNode[Float], proposal: ModuleNode[Float])
+  : (ModuleNode[Float], ModuleNode[Float]) = {
     val pool = 7
-    val model = Sequential()
-      .add(RoiPooling(pool, pool, 0.0625f).setName("pool5"))
-      .add(InferReshape(Array(-1, 512 * pool * pool)))
-      .add(Linear(512 * pool * pool, 4096).setName("fc6"))
-      .add(ReLU())
-      .add(Dropout().setName("drop6"))
-      .add(Linear(4096, 4096).setName("fc7"))
-      .add(ReLU())
-      .add(Dropout().setName("drop7"))
-
-    val cls = Sequential().add(Linear(4096, 21).setName("cls_score"))
-    cls.add(SoftMax().setName("cls_prob"))
-    val clsReg = ConcatTable()
-      .add(cls)
-      .add(Linear(4096, 84).setName("bbox_pred"))
-
-    model.add(clsReg)
-    model
+    val roiPooling = RoiPooling(pool, pool, 0.0625f).setName("pool5").inputs(feature, proposal)
+    val reshape = InferReshape(Array(-1, 512 * pool * pool)).inputs(roiPooling)
+    val fc6 = Linear(512 * pool * pool, 4096).setName("fc6").inputs(reshape)
+    val reLU6 = ReLU().inputs(fc6)
+    val dropout6 = Dropout().setName("drop6").inputs(reLU6)
+    val fc7 = Linear(4096, 4096).setName("fc7").inputs(dropout6)
+    val reLU7 = ReLU().inputs(fc7)
+    val dropout7 = Dropout().setName("drop7").inputs(reLU7)
+    val cls_score = Linear(4096, 21).setName("cls_score").inputs(dropout7)
+    val cls_prob = SoftMax().setName("cls_prob").inputs(cls_score)
+    val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
+    (cls_prob, bbox_pred)
   }
 
+  val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
+  val rpnPreNmsTopN = 6000
+  val rpnPostNmsTopN = 300
 
   def apply(nClass: Int): Module[Float] = {
-    val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
-    val rpnPreNmsTopN = 6000
-    val rpnPostNmsTopN = 300
-    FasterRcnn(nClass, rpnPreNmsTopN,
-      rpnPostNmsTopN, anchorParam, baseAndRpn(anchorParam.num), fastRcnn())
+    val data = Input()
+    val imInfo = Input()
+    val vgg = vgg16(data)
+    val rpnNet = rpn(vgg, imInfo)
+    val (clsProb, bboxPred) = fastRcnn(vgg, rpnNet)
+    Graph(Array(data, imInfo), Array(clsProb, bboxPred))
   }
 }
 

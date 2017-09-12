@@ -20,8 +20,8 @@ import com.intel.analytics.bigdl.nn.Module
 import com.intel.analytics.zoo.pipeline.common.IOUtils
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.common.PascalVocEvaluator
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{PostProcessParam, PreProcessParam, Validator}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PvanetFRcnn, VggFRcnn}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{Validator}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, PvanetFRcnn, VggFRcnn}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser

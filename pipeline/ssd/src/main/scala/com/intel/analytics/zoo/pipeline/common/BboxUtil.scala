@@ -17,11 +17,199 @@
 package com.intel.analytics.zoo.pipeline.common
 
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
 import com.intel.analytics.zoo.transform.vision.util.NormalizedBox
 import org.apache.log4j.Logger
 
+import scala.reflect.ClassTag
+
 object BboxUtil {
+  def selectCol(mat: Tensor[Float], cid: Int): Tensor[Float] = {
+    if (mat.nElement() == 0) return Tensor[Float](0)
+    mat.select(2, cid)
+  }
+
+  def vertcat[T: ClassTag](tensors: Tensor[T]*)(implicit ev: TensorNumeric[T]): Tensor[T] = {
+    require(tensors(0).dim() <= 2, "currently only support 1D or 2D")
+
+    def getRowCol(tensor: Tensor[T]): (Int, Int) = {
+      if (tensors(0).nDimension() == 2) {
+        (tensor.size(1), tensor.size(2))
+      } else {
+        (1, tensor.size(1))
+      }
+    }
+
+    var nRows = getRowCol(tensors(0))._1
+    val nCols = getRowCol(tensors(0))._2
+    for (i <- 1 until tensors.length) {
+      require(getRowCol(tensors(i))._2 == nCols, "the cols length must be equal")
+      nRows += getRowCol(tensors(i))._1
+    }
+    val resData = Tensor[T](nRows, nCols)
+    var id = 0
+    tensors.foreach { tensor =>
+      if (tensor.nDimension() == 1) {
+        id = id + 1
+        resData.update(id, tensor)
+      } else {
+        (1 to getRowCol(tensor)._1).foreach(rid => {
+          id = id + 1
+          resData.update(id, tensor(rid))
+        })
+      }
+    }
+    resData
+  }
+
+
+  def horzcat(tensors: Tensor[Float]*): Tensor[Float] = {
+    require(tensors(0).dim() == 2, "currently only support 2D")
+    val nRows = tensors(0).size(1)
+    var nCols = tensors(0).size(2)
+    for (i <- 1 until tensors.length) {
+      require(tensors(i).size(1) == nRows, "the rows length must be equal")
+      nCols += tensors(i).size(2)
+    }
+    val resData = Tensor[Float](nRows, nCols)
+    var id = 1
+    tensors.foreach { tensor =>
+      updateRange(resData, 1, nRows, id, id + tensor.size(2) - 1, tensor)
+      id = id + tensor.size(2)
+    }
+    resData
+  }
+
+  /**
+   * update with 2d tensor, the range must be equal to the src tensor size
+   *
+   */
+  def updateRange(dest: Tensor[Float], startR: Int, endR: Int, startC: Int, endC: Int,
+    src: Tensor[Float]): Unit = {
+    assert(src.size(1) == endR - startR + 1)
+    assert(src.size(2) == endC - startC + 1)
+    (startR to endR).zip(Stream.from(1)).foreach(r => {
+      (startC to endC).zip(Stream.from(1)).foreach(c => {
+        dest.setValue(r._1, c._1, src.valueAt(r._2, c._2))
+      })
+    })
+  }
+
+
+  /**
+   *
+   * @param boxes      (N, 4) ndarray of float
+   * @param queryBoxes (K, >=4) ndarray of float
+   * @return overlaps: (N, K) ndarray of overlap between boxes and query_boxes
+   */
+  def bboxOverlap(boxes: Tensor[Float], queryBoxes: Tensor[Float]): Tensor[Float] = {
+    require(boxes.size(2) >= 4)
+    require(queryBoxes.size(2) >= 4)
+    val N = boxes.size(1)
+    val K = queryBoxes.size(1)
+    val overlaps = Tensor[Float](N, K)
+
+    for (k <- 1 to K) {
+      val boxArea = (queryBoxes.valueAt(k, 3) - queryBoxes.valueAt(k, 1) + 1) *
+        (queryBoxes.valueAt(k, 4) - queryBoxes.valueAt(k, 2) + 1)
+      for (n <- 1 to N) {
+        val iw = Math.min(boxes.valueAt(n, 3), queryBoxes.valueAt(k, 3)) -
+          Math.max(boxes.valueAt(n, 1), queryBoxes.valueAt(k, 1)) + 1
+        if (iw > 0) {
+          val ih = Math.min(boxes.valueAt(n, 4), queryBoxes.valueAt(k, 4)) -
+            Math.max(boxes.valueAt(n, 2), queryBoxes.valueAt(k, 2)) + 1
+
+          if (ih > 0) {
+            val ua = (boxes.valueAt(n, 3) - boxes.valueAt(n, 1) + 1) *
+              (boxes.valueAt(n, 4) - boxes.valueAt(n, 2) + 1) + boxArea - iw * ih
+            overlaps.setValue(n, k, iw * ih / ua)
+          }
+        }
+      }
+    }
+    overlaps
+  }
+
+  def selectMatrix(matrix: Tensor[Float], indices: Array[Int], dim: Int, indiceLen: Int = -1,
+    out: Tensor[Float] = null): Tensor[Float] = {
+    assert(dim == 1 || dim == 2)
+    var i = 1
+    val n = if (indiceLen == -1) indices.length else indiceLen
+    if (matrix.nDimension() == 1) {
+      val res = if (out == null) {
+        Tensor[Float](n)
+      } else {
+        out.resize(n)
+      }
+      while (i <= n) {
+        res.update(i, matrix.valueAt(indices(i - 1)))
+        i += 1
+      }
+      return res
+    }
+    // select rows
+    if (dim == 1) {
+      val res = if (out == null) {
+        Tensor[Float](n, matrix.size(2))
+      } else {
+        out.resize(n, matrix.size(2))
+      }
+      while (i <= n) {
+        res.update(i, matrix(indices(i - 1)))
+        i += 1
+      }
+      res
+    } else {
+      val res = if (out == null) {
+        Tensor[Float](matrix.size(1), n)
+      } else {
+        out.resize(matrix.size(1), n)
+      }
+      while (i <= n) {
+        var rid = 1
+        val value = matrix.select(2, indices(i - 1))
+        while (rid <= res.size(1)) {
+          res.setValue(rid, i, value.valueAt(rid))
+          rid += 1
+        }
+        i += 1
+      }
+      res
+    }
+  }
+
+  def selectMatrix2(mat: Tensor[Float],
+    rows: Array[Int], cols: Array[Int]): Tensor[Float] = {
+    val out = Tensor[Float](rows.length, cols.length)
+    rows.zip(Stream from 1).map(r => {
+      cols.zip(Stream from 1).map(c => {
+        out.setValue(r._2, c._2, mat.valueAt(r._1, c._1))
+      })
+    })
+    out
+  }
+
+  def bboxTransform(exRois: Tensor[Float], gtRois: Tensor[Float]): Tensor[Float] = {
+    val exWidths = exRois.select(2, 3) - exRois.select(2, 1) + 1.0f
+    val exHeights = exRois.select(2, 4) - exRois.select(2, 2) + 1.0f
+    val exCtrX = exRois.select(2, 1) + exWidths * 0.5f
+    val exCtrY = exRois.select(2, 2) + exHeights * 0.5f
+
+    val gtWidths = selectCol(gtRois, 3) - selectCol(gtRois, 1) + 1.0f
+    val gtHeights = selectCol(gtRois, 4) - selectCol(gtRois, 2) + 1.0f
+    val gtCtrX = selectCol(gtRois, 1) + gtWidths * 0.5f
+    val gtCtrY = selectCol(gtRois, 2) + gtHeights * 0.5f
+
+    val targetsDx = (gtCtrX - exCtrX) / exWidths
+    val targetsDy = (gtCtrY - exCtrY) / exHeights
+    val targetsDw = gtWidths.cdiv(exWidths).log()
+    val targetsDh = gtHeights.cdiv(exHeights).log()
+
+    val res = vertcat(targetsDx, targetsDy, targetsDw, targetsDh)
+    res.t().contiguous()
+  }
+
 
   def resultToString(output: Tensor[Float], path: String, toInt: Boolean = true): String = {
     val decoded = decodeRois(output)

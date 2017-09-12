@@ -16,7 +16,6 @@
 
 package com.intel.analytics.zoo.transform.vision.label.roi
 
-import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.zoo.transform.vision.image.{FeatureTransformer, ImageFeature}
 import com.intel.analytics.zoo.transform.vision.util.{BboxUtil, NormalizedBox}
 
@@ -109,19 +108,21 @@ case class RoiResize() extends FeatureTransformer {
     val scaledW = feature.getOriginalWidth / feature.getWidth().toFloat
     val scaledH = feature.getOriginalHeight / feature.getHeight().toFloat
     val target = feature.getLabel[RoiLabel]
-    val gtInds = target.classes.storage().array().zip(Stream from 1)
-      .filter(x => x._1 != 0).map(x => x._2)
-    val resizedBoxes = Tensor[Float](gtInds.length, 5)
+    // todo: not sure whether need to filter diff or not
+//    val gtInds = target.classes.storage().array().zip(Stream from 1)
+//      .filter(x => x._1 != 0).map(x => x._2)
+//    val resizedBoxes = Tensor[Float](target, 5)
     var i = 0
-    while (i < gtInds.length) {
-      resizedBoxes.setValue(i + 1, 1, target.bboxes.valueAt(gtInds(i), 1) * scaledH)
-      resizedBoxes.setValue(i + 1, 2, target.bboxes.valueAt(gtInds(i), 2) * scaledW)
-      resizedBoxes.setValue(i + 1, 3, target.bboxes.valueAt(gtInds(i), 3) * scaledH)
-      resizedBoxes.setValue(i + 1, 4, target.bboxes.valueAt(gtInds(i), 4) * scaledW)
-      resizedBoxes.setValue(i + 1, 5, target.classes.valueAt(gtInds(i)))
+    while (i < target.size()) {
+      BboxUtil.scaleBBox(target.bboxes, scaledH, scaledW)
+//      resizedBoxes.setValue(i + 1, 1, target.bboxes.valueAt(gtInds(i), 1) * scaledH)
+//      resizedBoxes.setValue(i + 1, 2, target.bboxes.valueAt(gtInds(i), 2) * scaledW)
+//      resizedBoxes.setValue(i + 1, 3, target.bboxes.valueAt(gtInds(i), 3) * scaledH)
+//      resizedBoxes.setValue(i + 1, 4, target.bboxes.valueAt(gtInds(i), 4) * scaledW)
+//      resizedBoxes.setValue(i + 1, 5, target.classes.valueAt(1, gtInds(i)))
       i += 1
     }
-    target.bboxes.resizeAs(resizedBoxes).copy(resizedBoxes)
+//    target.bboxes.resizeAs(resizedBoxes).copy(resizedBoxes)
   }
 }
 
