@@ -269,8 +269,8 @@ object Train {
       val trainSummary = TrainSummary(param.summaryDir.get, param.jobName)
       val validationSummary = ValidationSummary(param.summaryDir.get, param.jobName)
       trainSummary.setSummaryTrigger("LearningRate", Trigger.severalIteration(1))
-      trainSummary.setSummaryTrigger("gradientNorm2", Trigger.severalIteration(1))
-      trainSummary.setSummaryTrigger("Parameters", Trigger.severalIteration(10))
+//      trainSummary.setSummaryTrigger("gradientNorm2", Trigger.severalIteration(1))
+//      trainSummary.setSummaryTrigger("Parameters", Trigger.severalIteration(10))
       optimizer.setTrainSummary(trainSummary)
       optimizer.setValidationSummary(validationSummary)
     }
