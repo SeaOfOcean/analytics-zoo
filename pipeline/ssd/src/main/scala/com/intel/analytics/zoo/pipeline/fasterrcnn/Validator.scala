@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.zoo.pipeline.common.DetectionEvaluator
+import com.intel.analytics.zoo.pipeline.common.{DetectionEvaluator, ModuleUtil}
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
@@ -39,6 +39,8 @@ class Validator(model: Module[Float],
     MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
     FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
+
+  ModuleUtil.shareMemory(model)
   val postProcessor = new Postprocessor(postProcessParam)
 
   def test(rdd: RDD[SSDByteRecord]): Array[(String, Double)] = {

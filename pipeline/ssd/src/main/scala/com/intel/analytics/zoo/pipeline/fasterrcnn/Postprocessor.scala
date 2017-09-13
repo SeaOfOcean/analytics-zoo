@@ -165,9 +165,9 @@ class Postprocessor(param: PostProcessParam) extends Serializable {
 
   def process(result: Table, imInfo: Tensor[Float]): Array[RoiLabel] = {
 
-    val scores = result[Table](1)[Tensor[Float]](1)
-    val boxDeltas = result[Table](1)[Tensor[Float]](2)
-    val rois = result[Tensor[Float]](2)
+    val scores = result[Tensor[Float]](1)
+    val boxDeltas = result[Tensor[Float]](2)
+    val rois = result[Table](3)[Tensor[Float]](1)
     if (nmsTool == null) nmsTool = new Nms
     // post process
     // unscale back to raw image space

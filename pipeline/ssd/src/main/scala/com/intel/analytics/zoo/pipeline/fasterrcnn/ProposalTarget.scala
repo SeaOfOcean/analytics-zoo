@@ -25,16 +25,19 @@ import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnnParam
 
-import scala.reflect.ClassTag
 import scala.util.Random
+
+object ProposalTarget {
+  def apply(param: FasterRcnnParam, numClasses: Int)
+    (implicit ev: TensorNumeric[Float]): ProposalTarget = new ProposalTarget(param, numClasses)
+}
 
 /**
  * Assign object detection proposals to ground-truth targets. Produces proposal
  * classification labels and bounding-box regression targets.
  */
-class ProposalTarget[@specialized(Float, Double) T: ClassTag]
-(param: FasterRcnnParam, numClasses: Int)
-  (implicit ev: TensorNumeric[T]) extends AbstractModule[Table, Table, T] {
+class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
+  (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Table, Float] {
 
   @transient val labelTarget = T()
   @transient val target = T()
@@ -174,6 +177,12 @@ class ProposalTarget[@specialized(Float, Double) T: ClassTag]
   }
 
   override def updateOutput(input: Table): Table = {
+    if (!isTraining()) {
+      output.insert(1, input(1))
+      output.insert(2, input(2))
+      return output
+    }
+
     // Proposal ROIs (0, x1, y1, x2, y2) coming from RPN
     // (i.e., rpn.proposal_layer.ProposalLayer), or any other source
     val all_roisTen = input[Tensor[Float]](1)

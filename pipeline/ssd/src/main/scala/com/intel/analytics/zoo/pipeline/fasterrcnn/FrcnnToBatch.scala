@@ -71,6 +71,7 @@ class FrcnnToBatch(totalBatch: Int,
               .contiguous()
             featureBatch.insert(featureTensor)
             featureBatch.insert(imInfoTensor)
+            featureBatch.insert(labelTensor)
             imInfoData(i * 4) = height
             imInfoData(i * 4 + 1) = width
             imInfoData(i * 4 + 2) = height.toFloat / feature.getOriginalHeight

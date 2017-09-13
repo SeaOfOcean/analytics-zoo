@@ -25,6 +25,70 @@ import org.apache.log4j.Logger
 import scala.reflect.ClassTag
 
 object BboxUtil {
+
+  def selectTensor(matrix: Tensor[Float], indices: Array[Int], dim: Int, indiceLen: Int = -1,
+    out: Tensor[Float] = null): Tensor[Float] = {
+    assert(dim == 1 || dim == 2)
+    var i = 1
+    val n = if (indiceLen == -1) indices.length else indiceLen
+    if (matrix.nDimension() == 1) {
+      val res = if (out == null) {
+        Tensor[Float](n)
+      } else {
+        out.resize(n)
+      }
+      while (i <= n) {
+        res.update(i, matrix.valueAt(indices(i - 1)))
+        i += 1
+      }
+      return res
+    }
+    // select rows
+    if (dim == 1) {
+      val res = if (out == null) {
+        Tensor[Float](n, matrix.size(2))
+      } else {
+        out.resize(n, matrix.size(2))
+      }
+      while (i <= n) {
+        res.update(i, matrix(indices(i - 1)))
+        i += 1
+      }
+      res
+    } else {
+      val res = if (out == null) {
+        Tensor[Float](matrix.size(1), n)
+      } else {
+        out.resize(matrix.size(1), n)
+      }
+      while (i <= n) {
+        var rid = 1
+        val value = matrix.select(2, indices(i - 1))
+        while (rid <= res.size(1)) {
+          res.setValue(rid, i, value.valueAt(rid))
+          rid += 1
+        }
+        i += 1
+      }
+      res
+    }
+  }
+  /**
+   * return the max value in rows(d=0) or in cols(d=1)
+   * arr = [4 9
+   * 5 7
+   * 8 5]
+   *
+   * argmax2(arr, 1) will return 3, 1
+   * argmax2(arr, 2) will return 2, 2, 1
+   *
+   * @return
+   * todo: this maybe removed
+   */
+  def argmax2(arr: Tensor[Float], d: Int): Array[Int] = {
+    require(d >= 1)
+    arr.max(d)._2.storage().array().map(x => x.toInt)
+  }
   def selectCol(mat: Tensor[Float], cid: Int): Tensor[Float] = {
     if (mat.nElement() == 0) return Tensor[Float](0)
     mat.select(2, cid)

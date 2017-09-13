@@ -20,7 +20,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.Model.ModelType
 
-class VggParam extends FasterRcnnParam {
+case class VggParam() extends FasterRcnnParam {
   val anchorParam = AnchorParam(_scales = Array[Float](8, 16, 32),
     _ratios = Array[Float](0.5f, 1.0f, 2.0f))
   override val BG_THRESH_LO = 0.0
