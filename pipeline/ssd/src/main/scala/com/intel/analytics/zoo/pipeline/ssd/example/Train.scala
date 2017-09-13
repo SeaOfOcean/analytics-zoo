@@ -51,6 +51,7 @@ object Option {
     batchSize: Int = -1,
     warmLearningRate: Double = 0.0001,
     learningRate: Double = 0.001,
+    sgdWarmEpoch: Int = 5,
     schedule: String = "multistep",
     learningRateDecay: Double = 0.1,
     learningRateSteps: Option[Array[Int]] = None,
@@ -101,6 +102,9 @@ object Option {
     opt[Int]("patience")
       .text("epoch to wait")
       .action((x, c) => c.copy(patience = x))
+    opt[Int]("warmEpoch")
+      .text("epoch for sgd to warm")
+      .action((x, c) => c.copy(sgdWarmEpoch = x))
     opt[Int]('e', "maxEpoch")
       .text("epoch numbers")
       .action((x, c) => c.copy(maxEpoch = Some(x)))
@@ -211,7 +215,7 @@ object Train {
               Array[Int](80000 * 32 / param.batchSize, 100000 * 32 / param.batchSize,
                 120000 * 32 / param.batchSize)
             }
-            MultistepWithWarm(steps, param.learningRateDecay, 16551 * 5 / param.batchSize, 0.001)
+            MultistepWithWarm(steps, param.learningRateDecay, 16551 * param.sgdWarmEpoch / param.batchSize, 0.001)
           case "plateau" =>
             PlateauWithWarm(monitor = "score",
               factor = param.learningRateDecay.toFloat,
@@ -266,6 +270,7 @@ object Train {
       val validationSummary = ValidationSummary(param.summaryDir.get, param.jobName)
       trainSummary.setSummaryTrigger("LearningRate", Trigger.severalIteration(1))
       trainSummary.setSummaryTrigger("gradientNorm2", Trigger.severalIteration(1))
+      trainSummary.setSummaryTrigger("Parameters", Trigger.severalIteration(10))
       optimizer.setTrainSummary(trainSummary)
       optimizer.setValidationSummary(validationSummary)
     }
