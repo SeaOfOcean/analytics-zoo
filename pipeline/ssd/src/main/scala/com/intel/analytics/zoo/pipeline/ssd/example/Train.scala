@@ -24,7 +24,7 @@ import com.intel.analytics.bigdl.optim.{Optimizer, _}
 import com.intel.analytics.bigdl.pipeline.common.{MultistepWithWarm, PlateauWithWarm}
 import com.intel.analytics.bigdl.pipeline.ssd.IOUtils
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
-import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
+import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter, T}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
 import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
 import com.intel.analytics.zoo.pipeline.common.caffe.CaffeLoader
@@ -57,10 +57,12 @@ object Option {
     patience: Int = 10,
     warmUpMap: Option[Double] = None,
     overWriteCheckpoint: Boolean = false,
+    resumeEpoch: Option[Int] = None,
     maxEpoch: Option[Int] = None,
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
-    summaryDir: Option[String] = None
+    summaryDir: Option[String] = None,
+    gradientClipMax: Double = 0
   )
 
   val trainParser = new OptionParser[TrainParams]("BigDL SSD Example") {
@@ -138,6 +140,12 @@ object Option {
     opt[String]("summary")
       .text("train validate summary")
       .action((x, c) => c.copy(summaryDir = Some(x)))
+    opt[Int]("resumeEpoch")
+      .text("which epoch to start")
+      .action((x, c) => c.copy(resumeEpoch = Some(x)))
+    opt[Double]("gradientClipMax")
+      .text("max norm2 of gradient clipping")
+      .action((x, c) => c.copy(gradientClipMax = x))
   }
 }
 
@@ -194,13 +202,14 @@ object Train {
       val optimMethod = if (param.stateSnapshot.isDefined) {
         OptimMethod.load[Float](param.stateSnapshot.get)
       } else {
+        val iterationsPerEpoch = math.ceil(1281167.toFloat / param.batchSize).toInt
         val learningRateSchedule = param.schedule match {
           case "multistep" =>
             val steps = if (param.learningRateSteps.isDefined) {
               param.learningRateSteps.get
             } else {
-              Array[Int](80000 / 32 * param.batchSize, 100000 / 32 * param.batchSize,
-                120000 / 32 * param.batchSize)
+              Array[Int](80000 * 32 / param.batchSize, 100000 * 32 / param.batchSize,
+                120000 * 32 / param.batchSize)
             }
             MultistepWithWarm(steps, param.learningRateDecay, 16551 * 5 / param.batchSize, 0.001)
           case "plateau" =>
@@ -210,11 +219,22 @@ object Train {
               warmUpIteration = 16551 * 5 / param.batchSize,
               startWarnLr = 0.001)
         }
-        new SGD[Float](
+        val sgd = new SGD[Float](
           learningRate = param.learningRate,
           momentum = 0.9,
           dampening = 0.0,
-          learningRateSchedule = learningRateSchedule)
+          learningRateSchedule = learningRateSchedule,
+          gradientClipMax = param.gradientClipMax)
+        if (param.resumeEpoch.isDefined) {
+          val resumeEpoch = param.resumeEpoch.get
+          val neval = (resumeEpoch - 1) * iterationsPerEpoch + 1
+          sgd.setState(T(
+            "epoch" -> resumeEpoch,
+            "neval" -> neval,
+            "evalCounter" -> (neval - 1)
+          ))
+        }
+        sgd
       }
 
       optimize(warmUpModel, trainSet, valSet, param, optimMethod,
@@ -245,6 +265,7 @@ object Train {
       val trainSummary = TrainSummary(param.summaryDir.get, param.jobName)
       val validationSummary = ValidationSummary(param.summaryDir.get, param.jobName)
       trainSummary.setSummaryTrigger("LearningRate", Trigger.severalIteration(1))
+      trainSummary.setSummaryTrigger("gradientNorm2", Trigger.severalIteration(1))
       optimizer.setTrainSummary(trainSummary)
       optimizer.setValidationSummary(validationSummary)
     }
