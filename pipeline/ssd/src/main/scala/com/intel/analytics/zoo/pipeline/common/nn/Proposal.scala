@@ -31,14 +31,14 @@ import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor, AnchorParam}
  *
  */
 class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
-  extends AbstractModule[Table, Table, Float] {
+  extends AbstractModule[Table, Tensor[Float], Float] {
 
   private val anchorUtil: Anchor = new Anchor(anchorParam)
   @transient private var nms: Nms = _
   @transient private var bboxDeltas: Tensor[Float] = _
   @transient private var scores: Tensor[Float] = _
   @transient private var keep: Array[Int] = _
-  @transient private var rpnRois: Tensor[Float] = _
+//  @transient private var rpnRois: Tensor[Float] = _
   @transient private var sortedScores: Tensor[Float] = _
   @transient private var sortedInds: Tensor[Float] = _
   @transient private var filteredProposals: Tensor[Float] = _
@@ -53,7 +53,7 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
       sortedScores = Tensor[Float]
       sortedInds = Tensor[Float]
       filteredProposals = Tensor[Float]
-      rpnRois = Tensor[Float]
+//      rpnRois = Tensor[Float]
     }
   }
 
@@ -76,7 +76,7 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
    * output(1): rpn_rois
    * output(2): rpn_scores
    */
-  override def updateOutput(input: Table): Table = {
+  override def updateOutput(input: Table): Tensor[Float] = {
     val inputScore = input[Tensor[Float]](1)
     require(inputScore.size(1) == 1, "currently only support single batch")
     init()
@@ -131,21 +131,21 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
 
     var i = 1
     var j = 2
-    rpnRois.resize(keepN, filteredProposals.size(2) + 1)
+    output.resize(keepN, filteredProposals.size(2) + 1)
     while (i <= keepN) {
-      rpnRois.setValue(i, 1, 0)
+      output.setValue(i, 1, 0)
       j = 2
-      while (j <= rpnRois.size(2)) {
-        rpnRois.setValue(i, j, filteredProposals.valueAt(keep(i - 1), j - 1))
+      while (j <= output.size(2)) {
+        output.setValue(i, j, filteredProposals.valueAt(keep(i - 1), j - 1))
         j += 1
       }
       i += 1
     }
-    if (output.length == 0) {
-      output.insert(rpnRois)
-    } else {
-      output.update(1, rpnRois)
-    }
+//    if (output.length == 0) {
+//      output.insert(rpnRois)
+//    } else {
+//      output.update(1, rpnRois)
+//    }
     output
   }
 
@@ -192,8 +192,8 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
     out
   }
 
-  override def updateGradInput(input: Table, gradOutput: Table): Table = {
-    gradInput = gradOutput
+  override def updateGradInput(input: Table, gradOutput: Tensor[Float]): Table = {
+    gradInput = null
     gradInput
   }
 

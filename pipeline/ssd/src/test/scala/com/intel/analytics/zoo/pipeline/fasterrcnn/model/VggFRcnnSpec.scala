@@ -18,14 +18,19 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.T
-import org.scalatest.FlatSpec
+import org.scalatest.{FlatSpec, Matchers}
 
-class VggFRcnnSpec extends FlatSpec {
+class VggFRcnnSpec extends FlatSpec with Matchers {
   "faster rcnn graph" should "forward properly" in {
     val frcnnGraph = VggFRcnn(21)
     val frcnn = VggFRcnnSeq(21)
+    frcnnGraph.loadModelWeights(frcnn)
 
-    frcnnGraph.forward(T(Tensor[Float](1, 3, 300, 300).randn(),
-      Tensor[Float](T(300f, 300f, 1f, 1f)).resize(1, 4)))
+    val input = T(Tensor[Float](1, 3, 300, 300).randn(),
+      Tensor[Float](T(300f, 300f, 1f, 1f)).resize(1, 4))
+    frcnnGraph.forward(input)
+    frcnn.forward(input)
+
+    frcnnGraph.output.toTable.length() should equal(frcnn.output.toTable.length())
   }
 }

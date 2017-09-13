@@ -55,7 +55,7 @@ object FasterRcnn {
     left.add(left1)
     left.add(Proposal(preNmsTopN = rpnPreNmsTopN,
       postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam))
-    left.add(selectTensor1(1))
+//    left.add(selectTensor1(1))
     // first add feature from feature net
     middle.add(selectTensor(1, 2))
     // then add rois from proposal
