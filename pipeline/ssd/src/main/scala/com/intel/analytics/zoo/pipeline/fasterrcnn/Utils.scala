@@ -20,11 +20,11 @@ import com.intel.analytics.bigdl.DataSet
 import com.intel.analytics.bigdl.dataset.DataSet
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.common.IOUtils
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, RoiImageToBatch, SSDMiniBatch}
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.RecordToFeature
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnMiniBatch, FrcnnToBatch}
+import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
-import com.intel.analytics.zoo.transform.vision.image.augmentation.{RandomResize, Resize}
 import com.intel.analytics.zoo.transform.vision.label.roi._
 import org.apache.spark.SparkContext
 
@@ -39,19 +39,17 @@ object Utils {
       RoiResize() ->
       MatToFloats(validHeight = 600, validWidth = 600,
         meanRGB = Some(122.7717f, 115.9465f, 102.9801f)) ->
-      FrcnnToBatch(batchSize)
+      FrcnnToBatch(batchSize, true)
   }
 
-  def loadValSet(folder: String, sc: SparkContext, resolution: Int, batchSize: Int)
-  : DataSet[SSDMiniBatch] = {
+  def loadValSet(folder: String, sc: SparkContext, param: PreProcessParam, batchSize: Int)
+  : DataSet[FrcnnMiniBatch] = {
     val valRdd = IOUtils.loadSeqFiles(Engine.nodeNumber, folder, sc)._1
 
     DataSet.rdd(valRdd) -> RecordToFeature(true) ->
       BytesToMat() ->
-      RoiNormalize() ->
-      Resize(resolution, resolution) ->
-      MatToFloats(validHeight = resolution, validWidth = resolution,
-        meanRGB = Some(123f, 117f, 104f)) ->
-      RoiImageToBatch(batchSize)
+      RandomResize(param.scales, param.scaleMultipleOf) ->
+      MatToFloats(validHeight = 100, 100, meanRGB = Some(param.pixelMeanRGB)) ->
+      FrcnnToBatch(param.batchSize, true)
   }
 }

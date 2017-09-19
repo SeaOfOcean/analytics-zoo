@@ -21,12 +21,12 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.MiniBatch
 import com.intel.analytics.bigdl.nn.Module
 import com.intel.analytics.bigdl.optim.{Optimizer, _}
-import com.intel.analytics.bigdl.pipeline.ssd.Utils
+import com.intel.analytics.bigdl.pipeline.fasterrcnn.Utils
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
 import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.SSDMiniBatch
+import com.intel.analytics.zoo.pipeline.fasterrcnn.FrcnnMiniBatch
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, PvanetFRcnn, VggFRcnn}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
@@ -40,19 +40,13 @@ object Option {
     modelType: String = "vgg16",
     caffeDefPath: Option[String] = None,
     caffeModelPath: Option[String] = None,
-    resolution: Int = 300,
     checkpoint: Option[String] = None,
     modelSnapshot: Option[String] = None,
     stateSnapshot: Option[String] = None,
     classNumber: Int = 21,
     batchSize: Int = -1,
     learningRate: Double = 0.001,
-    schedule: String = "multistep",
     learningRateDecay: Double = 0.1,
-    learningRateSteps: Option[Array[Int]] = None,
-    patience: Int = 10,
-    warmUpMap: Option[Double] = None,
-    overWriteCheckpoint: Boolean = false,
     maxEpoch: Int = 250,
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
@@ -76,10 +70,6 @@ object Option {
     opt[String]("caffeModelPath")
       .text("caffe model path")
       .action((x, c) => c.copy(caffeModelPath = Some(x)))
-    opt[Int]('r', "resolution")
-      .text("input resolution 300 or 512")
-      .action((x, c) => c.copy(resolution = x))
-      .required()
     opt[String]("model")
       .text("model snapshot location")
       .action((x, c) => c.copy(modelSnapshot = Some(x)))
@@ -92,9 +82,6 @@ object Option {
     opt[String]("checkpoint")
       .text("where to cache the model")
       .action((x, c) => c.copy(checkpoint = Some(x)))
-    opt[Int]("patience")
-      .text("epoch to wait")
-      .action((x, c) => c.copy(patience = x))
     opt[Int]('e', "maxEpoch")
       .text("epoch numbers")
       .action((x, c) => c.copy(maxEpoch = x))
@@ -102,16 +89,9 @@ object Option {
       .text("inital learning rate")
       .action((x, c) => c.copy(learningRate = x))
       .required()
-    opt[String]("schedule")
-      .text("learning rate schedule")
-      .action((x, c) => c.copy(schedule = x))
-      .required()
     opt[Double]('d', "learningRateDecay")
       .text("learning rate decay")
       .action((x, c) => c.copy(learningRateDecay = x))
-    opt[String]("step")
-      .text("learning rate steps, split by ,")
-      .action((x, c) => c.copy(learningRateSteps = Some(x.split(",").map(_.toInt))))
     opt[Int]('b', "batchSize")
       .text("batch size")
       .action((x, c) => c.copy(batchSize = x))
@@ -119,12 +99,6 @@ object Option {
     opt[Int]("classNum")
       .text("class number")
       .action((x, c) => c.copy(classNumber = x))
-    opt[Unit]("overWrite")
-      .text("overwrite checkpoint files")
-      .action((_, c) => c.copy(overWriteCheckpoint = true))
-    opt[Double]("warm")
-      .text("warm up map")
-      .action((x, c) => c.copy(warmUpMap = Some(x)))
     opt[String]("name")
       .text("job name")
       .action((x, c) => c.copy(jobName = x))
@@ -152,10 +126,6 @@ object Train {
       val sc = new SparkContext(conf)
       Engine.init
 
-      val trainSet = Utils.loadTrainSet(param.trainFolder, sc, param.resolution, param.batchSize)
-
-      val valSet = Utils.loadValSet(param.valFolder, sc, param.resolution, param.batchSize)
-
       val (model, preParam, postParam) = param.modelType match {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(param.classNumber),
@@ -171,34 +141,16 @@ object Train {
           throw new Exception("unsupport network")
       }
 
-      val warmUpModel = if (param.warmUpMap.isDefined) {
-        val optimMethod = new Adam[Float](
-          learningRate = 0.0001,
-          learningRateDecay = 0.0005
-        )
-        optimize(model, trainSet, valSet, param, optimMethod,
-          Trigger.maxScore(param.warmUpMap.get.toFloat), null)
-      } else {
-        model
-      }
+
+      val trainSet = Utils.loadTrainSet(param.trainFolder, sc, preParam,
+        param.batchSize)
+
+      val valSet = Utils.loadValSet(param.valFolder, sc, preParam, param.batchSize)
 
       val optimMethod = if (param.stateSnapshot.isDefined) {
         OptimMethod.load[Float](param.stateSnapshot.get)
       } else {
-        val learningRateSchedule = param.schedule match {
-          case "multistep" =>
-            val steps = if (param.learningRateSteps.isDefined) {
-              param.learningRateSteps.get
-            } else {
-              Array[Int](80000 / 32 * param.batchSize, 100000 / 32 * param.batchSize,
-                120000 / 32 * param.batchSize)
-            }
-            SGD.MultiStep(steps, param.learningRateDecay)
-          case "plateau" =>
-            SGD.Plateau(monitor = "score",
-              factor = param.learningRateDecay.toFloat,
-              patience = param.patience, minLr = 1e-5f, mode = "max")
-        }
+        val learningRateSchedule = SGD.Step(50000, 0.1)
         new SGD[Float](
           learningRate = param.learningRate,
           momentum = 0.9,
@@ -206,15 +158,15 @@ object Train {
           learningRateSchedule = learningRateSchedule)
       }
 
-      optimize(warmUpModel, trainSet, valSet, param, optimMethod,
+      optimize(model, trainSet, valSet, param, optimMethod,
         Trigger.maxEpoch(param.maxEpoch), null)
 
     })
   }
 
   private def optimize(model: Module[Float],
-    trainSet: DataSet[SSDMiniBatch],
-    valSet: DataSet[SSDMiniBatch], param: TrainParams, optimMethod: OptimMethod[Float],
+    trainSet: DataSet[FrcnnMiniBatch],
+    valSet: DataSet[FrcnnMiniBatch], param: TrainParams, optimMethod: OptimMethod[Float],
     endTrigger: Trigger,
     criterion: Criterion[Float]): Module[Float] = {
     val optimizer = Optimizer(
@@ -227,9 +179,7 @@ object Train {
       optimizer.setCheckpoint(param.checkpoint.get, Trigger.everyEpoch)
     }
 
-    if (param.overWriteCheckpoint) {
-      optimizer.overWriteCheckpoint()
-    }
+    optimizer.overWriteCheckpoint()
 
     if (param.summaryDir.isDefined) {
       val trainSummary = TrainSummary(param.summaryDir.get, param.jobName)
