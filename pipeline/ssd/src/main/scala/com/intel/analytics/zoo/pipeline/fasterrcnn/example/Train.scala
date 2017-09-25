@@ -26,8 +26,8 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericF
 import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
 import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
-import com.intel.analytics.zoo.pipeline.fasterrcnn.FrcnnMiniBatch
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, PvanetFRcnn, VggFRcnn}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnCriterion, FrcnnMiniBatch}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{VggFRcnn, _}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser
@@ -128,10 +128,13 @@ object Train {
 
       val (model, preParam, postParam) = param.modelType match {
         case "vgg16" =>
-          (Module.loadCaffe(VggFRcnn(param.classNumber),
-            param.caffeDefPath.get, param.caffeModelPath.get),
+          (VggFRcnn(param.classNumber),
             PreProcessParam(param.batchSize),
             PostProcessParam(0.3f, param.classNumber, false, -1, 0))
+//          (Module.loadCaffe(VggFRcnn(param.classNumber),
+//            param.caffeDefPath.get, param.caffeModelPath.get),
+//            PreProcessParam(param.batchSize),
+//            PostProcessParam(0.3f, param.classNumber, false, -1, 0))
         case "pvanet" =>
           (Module.loadCaffe(PvanetFRcnn(param.classNumber),
             param.caffeDefPath.get, param.caffeModelPath.get),
@@ -159,7 +162,7 @@ object Train {
       }
 
       optimize(model, trainSet, valSet, param, optimMethod,
-        Trigger.maxEpoch(param.maxEpoch), null)
+        Trigger.maxEpoch(param.maxEpoch), new FrcnnCriterion())
 
     })
   }

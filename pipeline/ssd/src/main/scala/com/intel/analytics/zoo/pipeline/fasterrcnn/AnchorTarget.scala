@@ -61,8 +61,8 @@ class AnchorTarget(param: FasterRcnnParam)
       BboxUtil.argmax2(insideAnchorsGtOverlaps, 2), 1)
     require(exRois.size(1) == gtRois.size(1))
     require(exRois.size(2) == 4)
-    require(gtRois.size(2) == 5)
-    BboxUtil.bboxTransform(exRois, BboxUtil.selectTensor(gtRois, Array.range(1, 5), 2))
+//    require(gtRois.size(2) == 5)
+    BboxUtil.bboxTransform(exRois, gtRois)
   }
 
 
@@ -77,7 +77,7 @@ class AnchorTarget(param: FasterRcnnParam)
     val allAnchors = anchorTool.generateAnchors(featureW, featureH, 16)
     // keep only inside anchors
     val indsInside = getIndsInside(imgW, imgH, allAnchors, 0)
-    logger.info(s"indsInside: ${ indsInside.length }")
+    logger.info(s"indsInside: ${indsInside.length}")
     val insideAnchors = Tensor[Float](indsInside.length, 4)
     indsInside.zip(Stream.from(1)).foreach(i => {
       insideAnchors.update(i._2, allAnchors(i._1))
@@ -102,6 +102,7 @@ class AnchorTarget(param: FasterRcnnParam)
     if (anchorTool == null) {
       anchorTool = new Anchor(param.anchorParam)
     }
+    require(gtBoxes.size(2) == 4)
     val anchorNum = param.anchorParam.num
     val (indsInside, insideAnchors, totalAnchors) = getAnchors(featureW, featureH, imgW, imgH)
 
@@ -197,9 +198,9 @@ class AnchorTarget(param: FasterRcnnParam)
     if (fgInds.length > numFg) {
       val disableInds = Random.shuffle(fgInds).take(fgInds.length - numFg.toInt)
       disableInds.foreach(x => labels.update(x, -1))
-      logger.info(s"${ disableInds.length } fg inds are disabled")
+      logger.info(s"${disableInds.length} fg inds are disabled")
     }
-    logger.info(s"fg: ${ fgInds.length }")
+    logger.info(s"fg: ${fgInds.length}")
 
     // subsample negative labels if we have too many
     val numBg = param.RPN_BATCHSIZE - fgInds.length
@@ -207,8 +208,8 @@ class AnchorTarget(param: FasterRcnnParam)
     if (bgInds.length > numBg) {
       val disableInds = Random.shuffle(bgInds).take(bgInds.length - numBg.toInt)
       disableInds.foreach(x => labels.setValue(x, -1))
-      logger.info(s"${ disableInds.length } bg inds are disabled, " +
-        s"now ${ (1 to labels.size(1)).count(x => labels.valueAt(x) == 0) } inds")
+      logger.info(s"${disableInds.length} bg inds are disabled, " +
+        s"now ${(1 to labels.size(1)).count(x => labels.valueAt(x) == 0)} inds")
     }
     labels
   }
@@ -311,10 +312,10 @@ class AnchorTarget(param: FasterRcnnParam)
   override def updateOutput(input: Table): Table = {
     if (!isTraining()) return output
     val rpnReg = input[Tensor[Float]](1)
-    val imInfo = input[Tensor[Float]](2)
-    val gtBoxes = input[Tensor[Float]](3)
+    val gtBoxes = FrcnnMiniBatch.getBboxes(input[Tensor[Float]](2))
+    val imInfo = input[Tensor[Float]](3)
     val anchorTargets = getAnchorTarget(rpnReg.size(3), rpnReg.size(4),
-      imInfo.valueAt(1).toInt, imInfo.valueAt(2).toInt, gtBoxes)
+      imInfo.valueAt(1, 1).toInt, imInfo.valueAt(1, 2).toInt, gtBoxes)
     if (output == null) {
       output = T()
       output.insert(anchorTargets.labels)

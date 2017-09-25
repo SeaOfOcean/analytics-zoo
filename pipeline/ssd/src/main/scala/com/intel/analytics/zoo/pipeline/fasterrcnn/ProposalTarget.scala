@@ -39,8 +39,8 @@ object ProposalTarget {
 class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Table, Float] {
 
-  @transient val labelTarget = T()
-  @transient val target = T()
+//  val labelTarget = T()
+  val target = T()
 //  @transient var bboxTool: Bbox = new Bbox
 
   /**
@@ -137,13 +137,14 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   : (Tensor[Float], Tensor[Float], Tensor[Float], Tensor[Float]) = {
     // overlaps: (rois x gt_boxes)
     val overlaps = BboxUtil.bboxOverlap(BboxUtil.selectMatrix(all_rois, Array.range(2, 6), 2),
-      BboxUtil.selectMatrix(gt_boxes, Array.range(1, 5), 2))
+      FrcnnMiniBatch.getBboxes(gt_boxes))
 
     val (max_overlaps, gt_assignment) = overlaps.max(2)
 
+    // todo: optimize this
     var labels = BboxUtil.selectMatrix2(gt_boxes, gt_assignment.storage().array()
       .map(x => x.toInt),
-      Array(5)).squeeze().clone()
+      Array(FrcnnMiniBatch.labelIndex)).squeeze().clone()
 
     val fg_inds = selectForeGroundRois(max_overlaps)
     val bg_inds = selectBackgroundRois(max_overlaps)
@@ -163,7 +164,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     val bbox_target_data = computeTargets(
       BboxUtil.selectMatrix(rois, Array.range(2, 6), 2),
       BboxUtil.selectMatrix(BboxUtil.selectMatrix(gt_boxes, keepInds2, 1),
-        Array.range(1, 5), 2), labels)
+        Array.range(FrcnnMiniBatch.x1Index, FrcnnMiniBatch.y2Index + 1), 2), labels)
 
 
     val (bbox_targets, bbox_inside_weights) =
@@ -188,24 +189,23 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     val all_roisTen = input[Tensor[Float]](1)
     // GT boxes (x1, y1, x2, y2, label)
     // and other times after box coordinates -- normalize to one format
-    val gt_boxes = input[Tensor[Float]](2)
+    val gts = input[Tensor[Float]](2)
 
     // Include ground-truth boxes in the set of candidate rois
-    val zeros = Tensor[Float](gt_boxes.size(1), 1)
+    val zeros = Tensor[Float](gts.size(1), 1)
     val all_rois = BboxUtil.vertcat(all_roisTen,
-      BboxUtil.horzcat(zeros, BboxUtil.selectMatrix(gt_boxes,
-        Array.range(1, gt_boxes.size(2)), 2)))
+      BboxUtil.horzcat(zeros, FrcnnMiniBatch.getBboxes(gts)))
 
     // Sample rois with classification labels and bounding box regression
     // targets
-    val (labels, rois, bbox_targets, bbox_inside_weights) = sampleRois(all_rois, gt_boxes)
+    val (labels, rois, bbox_targets, bbox_inside_weights) = sampleRois(all_rois, gts)
 
     labels.apply1(x => if (x == -1) -1 else x + 1f)
     if (output.length() == 0) {
       // sampled rois (0, x1, y1, x2, y2) (1,5)
-      output.insert(rois)
+      output.insert(1, rois)
       // labels (1,1)
-      labelTarget.insert(labels)
+      output.insert(2, labels)
       // bbox_targets (1, numClasses * 4) + bbox_inside_weights (1, numClasses * 4)
       // + bbox_outside_weights (1, numClasses * 4)
 
@@ -219,13 +219,13 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         }
       }
 
-      labelTarget.insert(matrix2Table(bbox_targets, bbox_inside_weights,
+      output.insert(3, matrix2Table(bbox_targets, bbox_inside_weights,
         bbox_inside_weights))
-      output.insert(labelTarget)
+//      output.insert(labelTarget)
     } else {
-      output.update(1, rois)
-      labelTarget.update(1, labels)
-      labelTarget.update(2, matrix2Table(bbox_targets, bbox_inside_weights,
+      output.insert(1, rois)
+      output.insert(2, labels)
+      output.insert(3, matrix2Table(bbox_targets, bbox_inside_weights,
         bbox_inside_weights))
     }
     output
@@ -234,15 +234,9 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
   def matrix2Table(mat1: Tensor[Float], mat2: Tensor[Float],
     mat3: Tensor[Float]): Table = {
-    if (target.length() == 0) {
-      target.insert(mat1)
-      target.insert(mat2)
-      target.insert(mat3)
-    } else {
-      target.update(1, mat1)
-      target.update(2, mat2)
-      target.update(3, mat3)
-    }
+    target.insert(1, mat1)
+    target.insert(2, mat2)
+    target.insert(3, mat3)
     target
   }
 

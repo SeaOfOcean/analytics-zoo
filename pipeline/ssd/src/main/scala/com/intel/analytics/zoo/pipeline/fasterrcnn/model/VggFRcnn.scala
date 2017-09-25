@@ -134,11 +134,11 @@ object VggFRcnn {
     val rpn_bbox_pred = SpatialConvolution(512, 36, 1, 1, 1, 1).setName("rpn_bbox_pred")
       .inputs(relu3x3)
     val proposal = Proposal(preNmsTopN = rpnPreNmsTopN,
-      postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam)
+      postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam).setName("proposal")
       .inputs(rpn_cls_prob_reshape, rpn_bbox_pred, imInfo)
 
 
-    val roi_data = ProposalTarget(VggParam(), nClass)
+    val roi_data = ProposalTarget(VggParam(), nClass).setName("roi-data")
       .inputs(proposal, gt)
     val roi = SelectTable(1).inputs(roi_data)
     // val (clsProb, bboxPred) = fastRcnn(vgg, rpnNet)
@@ -156,10 +156,12 @@ object VggFRcnn {
     val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
 
     // Training part
-    val rpn_data = AnchorTarget(VggParam()).inputs(rpn_cls_score, gt, imInfo, data)
+    val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
+      .inputs(rpn_cls_score, gt, imInfo, data)
 
-    Graph(Array(data, imInfo, gt), Array(cls_prob, bbox_pred, roi_data,
+    val model = Graph(Array(data, imInfo, gt), Array(cls_prob, bbox_pred, roi_data,
       rpn_cls_score_reshape, rpn_bbox_pred, rpn_data))
+    model.stopGradient(Array("rpn-data", "roi-data", "proposal"))
   }
 }
 

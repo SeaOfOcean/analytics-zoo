@@ -33,8 +33,9 @@ class FrcnnToBatch(totalBatch: Int,
 
   override def apply(prev: Iterator[ImageFeature]): Iterator[FrcnnMiniBatch] = {
     val batchSizePerPartition = batchPerPartition
+    println("batchSizePerPartition: " + batchSizePerPartition)
     new Iterator[FrcnnMiniBatch] {
-      private val featureBatch: Table = T()
+      private val inputBatch: Table = T()
       private val labelTensor: Tensor[Float] = Tensor[Float]()
       private val imInfoTensor: Tensor[Float] = Tensor[Float]()
       private var labelData: ArrayBuffer[Float] = null
@@ -49,9 +50,11 @@ class FrcnnToBatch(totalBatch: Int,
       override def next(): FrcnnMiniBatch = {
         if (prev.hasNext) {
           var i = 0
-          featureBatch.clear()
+          inputBatch.clear()
           if (labelData != null) labelData.clear()
           while (i < batchSize && prev.hasNext) {
+            val input = T()
+            inputBatch.insert(input)
             val feature = prev.next()
             height = feature.getHeight()
             width = feature.getWidth()
@@ -69,9 +72,9 @@ class FrcnnToBatch(totalBatch: Int,
             val featureTensor = Tensor(Storage(data))
               .resize(1, feature.getHeight(), feature.getWidth(), 3).transpose(2, 4).transpose(3, 4)
               .contiguous()
-            featureBatch.insert(featureTensor)
-            featureBatch.insert(imInfoTensor)
-            featureBatch.insert(labelTensor)
+            input.insert(featureTensor)
+            input.insert(imInfoTensor)
+            input.insert(labelTensor)
             imInfoData(i * 4) = height
             imInfoData(i * 4 + 1) = width
             imInfoData(i * 4 + 2) = height.toFloat / feature.getOriginalHeight
@@ -111,9 +114,9 @@ class FrcnnToBatch(totalBatch: Int,
           val batch = if (convertLabel) {
             labelTensor.set(Storage[Float](labelData.toArray),
               storageOffset = 1, sizes = Array(labelData.length / 7, 7))
-            FrcnnMiniBatch(featureBatch, labelTensor, imInfoTensor)
+            FrcnnMiniBatch(inputBatch, labelTensor, imInfoTensor)
           } else {
-            FrcnnMiniBatch(featureBatch, null, imInfoTensor)
+            FrcnnMiniBatch(inputBatch, null, imInfoTensor)
           }
           batch
         } else {
