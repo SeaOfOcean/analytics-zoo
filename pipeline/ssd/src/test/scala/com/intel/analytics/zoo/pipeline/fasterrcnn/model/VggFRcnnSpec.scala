@@ -16,9 +16,10 @@
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
-import com.intel.analytics.bigdl.nn.Utils
+import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.T
+import com.intel.analytics.bigdl.numeric.NumericFloat
 import org.scalatest.{FlatSpec, Matchers}
 
 class VggFRcnnSpec extends FlatSpec with Matchers {

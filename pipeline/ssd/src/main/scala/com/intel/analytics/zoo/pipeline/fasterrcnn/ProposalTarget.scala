@@ -39,7 +39,7 @@ object ProposalTarget {
 class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Table, Float] {
 
-//  val labelTarget = T()
+  //  val labelTarget = T()
   val target = T()
 //  @transient var bboxTool: Bbox = new Bbox
 
@@ -202,10 +202,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
     labels.apply1(x => if (x == -1) -1 else x + 1f)
     if (output.length() == 0) {
-      // sampled rois (0, x1, y1, x2, y2) (1,5)
-      output.insert(1, rois)
-      // labels (1,1)
-      output.insert(2, labels)
       // bbox_targets (1, numClasses * 4) + bbox_inside_weights (1, numClasses * 4)
       // + bbox_outside_weights (1, numClasses * 4)
 
@@ -218,16 +214,15 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
           }
         }
       }
-
-      output.insert(3, matrix2Table(bbox_targets, bbox_inside_weights,
-        bbox_inside_weights))
-//      output.insert(labelTarget)
-    } else {
-      output.insert(1, rois)
-      output.insert(2, labels)
-      output.insert(3, matrix2Table(bbox_targets, bbox_inside_weights,
-        bbox_inside_weights))
     }
+
+    // sampled rois (0, x1, y1, x2, y2) (1,5)
+    output.insert(1, rois)
+    // labels (1,1)
+    output.insert(2, labels)
+    output.insert(3, bbox_targets)
+    output.insert(4, bbox_inside_weights)
+    output.insert(5, bbox_inside_weights)
     output
   }
 
@@ -241,7 +236,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   }
 
   override def updateGradInput(input: Table, gradOutput: Table): Table = {
-    gradInput = gradOutput
+    gradInput = null
     gradInput
   }
 }

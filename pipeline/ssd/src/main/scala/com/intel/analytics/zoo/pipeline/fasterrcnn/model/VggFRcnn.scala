@@ -15,15 +15,13 @@
  */
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
-
 import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.nn.Proposal
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorParam, AnchorTarget, ProposalTarget}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorParam, AnchorTarget, ProposalTarget, RoiPooling => RoiPoolingFrcnn}
 import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
-
 object VggFRcnn {
 
   private[pipeline] def addConvRelu(prevNodes: ModuleNode[Float], p: (Int, Int, Int, Int, Int),
@@ -140,10 +138,10 @@ object VggFRcnn {
 
     val roi_data = ProposalTarget(VggParam(), nClass).setName("roi-data")
       .inputs(proposal, gt)
-    val roi = SelectTable(1).inputs(roi_data)
+    val roi = SelectTable(1).setName("roi").inputs(roi_data)
     // val (clsProb, bboxPred) = fastRcnn(vgg, rpnNet)
     val pool = 7
-    val roiPooling = RoiPooling(pool, pool, 0.0625f).setName("pool5").inputs(vgg, roi)
+    val roiPooling = RoiPoolingFrcnn(pool, pool, 0.0625f).setName("pool5").inputs(vgg, roi)
     val reshape = InferReshape(Array(-1, 512 * pool * pool)).inputs(roiPooling)
     val fc6 = Linear(512 * pool * pool, 4096).setName("fc6").inputs(reshape)
     val reLU6 = ReLU().inputs(fc6)
@@ -161,7 +159,7 @@ object VggFRcnn {
 
     val model = Graph(Array(data, imInfo, gt), Array(cls_prob, bbox_pred,
       rpn_cls_score_reshape, rpn_bbox_pred, roi_data, rpn_data))
-    model.stopGradient(Array("rpn-data", "roi-data", "proposal"))
+    model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "relu2_2"))
   }
 }
 

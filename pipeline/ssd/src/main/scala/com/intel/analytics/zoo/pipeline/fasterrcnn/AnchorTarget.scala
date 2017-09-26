@@ -19,7 +19,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn
 import com.intel.analytics.bigdl.nn.abstractnn.AbstractModule
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
-import com.intel.analytics.bigdl.utils.{T, Table}
+import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorTarget.logger
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnnParam
@@ -29,16 +29,16 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-case class BboxTarget(labels: Tensor[Float],
-  bboxTargets: Tensor[Float],
-  bboxInsideWeights: Tensor[Float],
-  bboxOutsideWeights: Tensor[Float]) {
-
-  val targetsTable = T()
-  targetsTable.insert(bboxTargets)
-  targetsTable.insert(bboxInsideWeights)
-  targetsTable.insert(bboxOutsideWeights)
-}
+//case class BboxTarget(labels: Tensor[Float],
+//  bboxTargets: Tensor[Float],
+//  bboxInsideWeights: Tensor[Float],
+//  bboxOutsideWeights: Tensor[Float]) {
+//
+//  val targetsTable = T()
+//  targetsTable.insert(bboxTargets)
+//  targetsTable.insert(bboxInsideWeights)
+//  targetsTable.insert(bboxOutsideWeights)
+//}
 
 object AnchorTarget {
   val logger = Logger.getLogger(getClass)
@@ -98,7 +98,7 @@ class AnchorTarget(param: FasterRcnnParam)
    * measure GT overlap
    */
   def getAnchorTarget(featureH: Int, featureW: Int,
-    imgH: Int, imgW: Int, gtBoxes: Tensor[Float]): BboxTarget = {
+    imgH: Int, imgW: Int, gtBoxes: Tensor[Float], output: Table): Unit = {
     if (anchorTool == null) {
       anchorTool = new Anchor(param.anchorParam)
     }
@@ -134,10 +134,10 @@ class AnchorTarget(param: FasterRcnnParam)
       .transpose(2, 3).transpose(2, 4)
     bboxOutSideWeights = bboxOutSideWeights.reshape(Array(1, featureH,
       featureW, anchorNum * 4)).transpose(2, 3).transpose(2, 4)
-    BboxTarget(labels.contiguous(),
-      bboxTargets.contiguous(),
-      bboxInsideWeights.contiguous(),
-      bboxOutSideWeights.contiguous())
+    output.update(1, labels.contiguous())
+    output.update(2, bboxTargets.contiguous())
+    output.update(3, bboxInsideWeights.contiguous())
+    output.update(4, bboxOutSideWeights.contiguous())
   }
 
   // label: 1 is positive, 0 is negative, -1 is don't care
@@ -261,13 +261,13 @@ class AnchorTarget(param: FasterRcnnParam)
     bboxTargets: Tensor[Float],
     bboxInsideWeights: Tensor[Float],
     bboxOutSideWeights: Tensor[Float],
-    indsInside: Array[Int]): BboxTarget = {
+    indsInside: Array[Int]): (Tensor[Float], Tensor[Float], Tensor[Float], Tensor[Float]) = {
     val labels2 = unmap(labels, totalAnchors, indsInside, -1)
     val bboxTargets2 = unmap(bboxTargets, totalAnchors, indsInside, 0)
     val bboxInsideWeights2 = unmap(bboxInsideWeights, totalAnchors, indsInside, 0)
     val bboxOutSideWeights2 = unmap(bboxOutSideWeights, totalAnchors, indsInside, 0)
 
-    BboxTarget(labels2, bboxTargets2, bboxInsideWeights2, bboxOutSideWeights2)
+    (labels2, bboxTargets2, bboxInsideWeights2, bboxOutSideWeights2)
   }
 
   def getIndsInside(width: Int, height: Int,
@@ -314,16 +314,8 @@ class AnchorTarget(param: FasterRcnnParam)
     val rpnReg = input[Tensor[Float]](1)
     val gtBoxes = FrcnnMiniBatch.getBboxes(input[Tensor[Float]](2))
     val imInfo = input[Tensor[Float]](3)
-    val anchorTargets = getAnchorTarget(rpnReg.size(3), rpnReg.size(4),
-      imInfo.valueAt(1, 1).toInt, imInfo.valueAt(1, 2).toInt, gtBoxes)
-    if (output == null) {
-      output = T()
-      output.insert(anchorTargets.labels)
-      output.insert(anchorTargets.targetsTable)
-    } else {
-      output.update(1, anchorTargets.labels)
-      output.update(2, anchorTargets.targetsTable)
-    }
+    getAnchorTarget(rpnReg.size(3), rpnReg.size(4),
+      imInfo.valueAt(1, 1).toInt, imInfo.valueAt(1, 2).toInt, gtBoxes, output)
     output
   }
 
@@ -335,6 +327,7 @@ class AnchorTarget(param: FasterRcnnParam)
    * @return
    */
   override def updateGradInput(input: Table, gradOutput: Table): Table = {
+    gradInput = null
     gradOutput
   }
 }

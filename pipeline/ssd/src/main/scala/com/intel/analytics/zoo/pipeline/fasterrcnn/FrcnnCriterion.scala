@@ -44,6 +44,10 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   criterion.add(rpn_loss_cls, rpnLossClsWeight)
   criterion.add(rpn_loss_bbox, rpnLossBboxWeight)
 
+
+  private val anchorBbox = T()
+  private val proposalBbox = T()
+
   override def updateOutput(input: Table, target: Tensor[Float]): Float = {
     val cls_prob = input[Tensor[Float]](1)
     val bbox_pred = input[Tensor[Float]](2)
@@ -54,19 +58,28 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
     data.insert(1, cls_prob)
     label.insert(1, roi_data(2))
     data.insert(2, bbox_pred)
-    label.insert(2, roi_data(3))
+    label.insert(2, getSubTable(roi_data, proposalBbox, 3, 3))
     data.insert(3, rpn_cls_score_reshape)
     label.insert(3, rpn_data(1))
     data.insert(4, rpn_bbox_pred)
-    label.insert(4, rpn_data(2))
+    label.insert(4, getSubTable(rpn_data, anchorBbox, 2, 3))
     output = criterion.updateOutput(data, label)
     output
   }
 
+  private def getSubTable(src: Table, target: Table, startInd: Int, len: Int): Table = {
+    var i = 1
+    (startInd until startInd + len).foreach(j => {
+      target.insert(i, src(j))
+      i += 1
+    })
+    target
+  }
+
   override def updateGradInput(input: Table, target: Tensor[Float]): Table = {
     gradInput = criterion.updateGradInput(data, label)
-    gradInput.insert(5, T(Tensor(), Tensor(), Tensor()))
-    gradInput.insert(6, T(Tensor(), Tensor()))
+    gradInput.insert(5, T(Tensor(), Tensor(), Tensor(), Tensor(), Tensor()))
+    gradInput.insert(6, T(Tensor(), Tensor(), Tensor(), Tensor()))
     gradInput
   }
 }
