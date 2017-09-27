@@ -51,9 +51,9 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   override def updateOutput(input: Table, target: Tensor[Float]): Float = {
     val cls_prob = input[Tensor[Float]](1)
     val bbox_pred = input[Tensor[Float]](2)
-    val roi_data = input[Table](5)
-    val rpn_cls_score_reshape = input[Tensor[Float]](3)
-    val rpn_bbox_pred = input[Tensor[Float]](4)
+    val roi_data = input[Table](3)
+    val rpn_cls_score_reshape = input[Tensor[Float]](4)
+    val rpn_bbox_pred = input[Tensor[Float]](5)
     val rpn_data = input[Table](6)
     data.insert(1, cls_prob)
     label.insert(1, roi_data(2))

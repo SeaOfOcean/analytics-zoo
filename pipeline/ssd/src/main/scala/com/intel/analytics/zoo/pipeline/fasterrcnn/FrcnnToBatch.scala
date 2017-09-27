@@ -114,9 +114,9 @@ class FrcnnToBatch(totalBatch: Int,
           val batch = if (convertLabel) {
             labelTensor.set(Storage[Float](labelData.toArray),
               storageOffset = 1, sizes = Array(labelData.length / 7, 7))
-            FrcnnMiniBatch(inputBatch, labelTensor, imInfoTensor)
+            FrcnnMiniBatch(inputBatch, labelTensor)
           } else {
-            FrcnnMiniBatch(inputBatch, null, imInfoTensor)
+            FrcnnMiniBatch(inputBatch, null)
           }
           batch
         } else {

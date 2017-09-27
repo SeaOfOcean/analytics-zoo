@@ -20,12 +20,12 @@ import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
+import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.zoo.pipeline.common.ModuleUtil
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
-import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
 import org.apache.spark.rdd.RDD
 
 class Predictor(
@@ -42,7 +42,7 @@ class Predictor(
   ModuleUtil.shareMemory(model)
   val postProcessor = new Postprocessor(postProcessParam)
 
-  def predict(rdd: RDD[SSDByteRecord]): RDD[Array[RoiLabel]] = {
+  def predict(rdd: RDD[SSDByteRecord]): RDD[Tensor[Float]] = {
     Predictor.predict(rdd, model, preProcessor, postProcessor)
   }
 }
@@ -52,7 +52,7 @@ object Predictor {
     model: Module[Float],
     preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch],
     postProcessor: Postprocessor
-  ): RDD[Array[RoiLabel]] = {
+  ): RDD[Tensor[Float]] = {
     model.evaluate()
     val broadcastModel = ModelBroadcast().broadcast(rdd.sparkContext, model)
     val broadpostprocessor = rdd.sparkContext.broadcast(postProcessor)
@@ -60,8 +60,7 @@ object Predictor {
       val localModel = broadcastModel.value()
       val localPostProcessor = broadpostprocessor.value.clone()
       dataIter.map(batch => {
-        val result = localModel.forward(batch.getInput()).toTable
-        localPostProcessor.process(result, batch.imInfo)
+        localModel.forward(batch.getInput()).toTensor[Float]
       })
     })
   }

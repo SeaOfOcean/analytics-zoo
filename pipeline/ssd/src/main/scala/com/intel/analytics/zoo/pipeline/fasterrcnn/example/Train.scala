@@ -128,7 +128,8 @@ object Train {
 
       val (model, preParam, postParam) = param.modelType match {
         case "vgg16" =>
-          (VggFRcnn(param.classNumber),
+          (VggFRcnn(param.classNumber,
+            PostProcessParam(0.3f, param.classNumber, false, -1, 0)),
             PreProcessParam(param.batchSize),
             PostProcessParam(0.3f, param.classNumber, false, -1, 0))
 //          (Module.loadCaffe(VggFRcnn(param.classNumber),

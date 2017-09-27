@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.nn.Proposal
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorParam, AnchorTarget, ProposalTarget, RoiPooling => RoiPoolingFrcnn}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorParam, AnchorTarget, Postprocessor, ProposalTarget, RoiPooling => RoiPoolingFrcnn}
 import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
 object VggFRcnn {
 
@@ -63,57 +63,12 @@ object VggFRcnn {
     relu5_3
   }
 
-//  private def rpn(input: ModuleNode[Float],
-//    imInfo: ModuleNode[Float]): ModuleNode[Float] = {
-//    val rpn_conv_3x3 = SpatialConvolution(512, 512, 3, 3, 1, 1, 1, 1)
-//      .setName("rpn_conv/3x3").inputs(input)
-//    val relu3x3 = ReLU(true).setName("rpn_relu/3x3").inputs(rpn_conv_3x3)
-//    val rpn_cls_score = SpatialConvolution(512, 18, 1, 1, 1, 1)
-//      .setName("rpn_cls_score").inputs(relu3x3)
-//    val rpn_cls_score_reshape = InferReshape(Array(0, 2, -1, 0)).inputs(rpn_cls_score)
-//    val rpn_cls_prob = SoftMax().setName("rpn_cls_prob").inputs(rpn_cls_score_reshape)
-//    val rpn_cls_prob_reshape = InferReshape(Array(1, 2 * anchorParam.num, -1, 0))
-//      .setName("rpn_cls_prob_reshape").inputs(rpn_cls_prob)
-//    val rpn_bbox_pred = SpatialConvolution(512, 36, 1, 1, 1, 1).setName("rpn_bbox_pred")
-//      .inputs(relu3x3)
-//    val proposal = Proposal(preNmsTopN = rpnPreNmsTopN,
-//      postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam)
-//      .inputs(rpn_cls_prob_reshape, rpn_bbox_pred, imInfo)
-//    proposal
-//  }
-
-//  def baseAndRpn(anchorNum: Int): Sequential[Float] = {
-//    val relu5_3 = vgg16()
-//
-//    val vggRpnModel = ConcatTable()
-//    vggRpnModel.add(rpn(anchorNum))
-//    vggRpnModel.add(Identity())
-//    compose.add(vggRpnModel)
-//    compose
-//  }
-
-//  def fastRcnn(feature: ModuleNode[Float], proposal: ModuleNode[Float])
-//  : (ModuleNode[Float], ModuleNode[Float]) = {
-//    val pool = 7
-//    val roiPooling = RoiPooling(pool, pool, 0.0625f).setName("pool5").inputs(feature, proposal)
-//    val reshape = InferReshape(Array(-1, 512 * pool * pool)).inputs(roiPooling)
-//    val fc6 = Linear(512 * pool * pool, 4096).setName("fc6").inputs(reshape)
-//    val reLU6 = ReLU().inputs(fc6)
-//    val dropout6 = Dropout().setName("drop6").inputs(reLU6)
-//    val fc7 = Linear(4096, 4096).setName("fc7").inputs(dropout6)
-//    val reLU7 = ReLU().inputs(fc7)
-//    val dropout7 = Dropout().setName("drop7").inputs(reLU7)
-//    val cls_score = Linear(4096, 21).setName("cls_score").inputs(dropout7)
-//    val cls_prob = SoftMax().setName("cls_prob").inputs(cls_score)
-//    val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
-//    (cls_prob, bbox_pred)
-//  }
 
   val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
   val rpnPreNmsTopN = 6000
   val rpnPostNmsTopN = 300
 
-  def apply(nClass: Int): Module[Float] = {
+  def apply(nClass: Int, param: PostProcessParam): Module[Float] = {
     val data = Input()
     val imInfo = Input()
     // for training only
@@ -157,8 +112,9 @@ object VggFRcnn {
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
       .inputs(rpn_cls_score, gt, imInfo, data)
 
-    val model = Graph(Array(data, imInfo, gt), Array(cls_prob, bbox_pred,
-      rpn_cls_score_reshape, rpn_bbox_pred, roi_data, rpn_data))
+    val detectionOut = Postprocessor(param).inputs(cls_prob, bbox_pred, roi_data,
+      rpn_cls_score_reshape, rpn_bbox_pred, rpn_data, imInfo)
+    val model = Graph(Array(data, imInfo, gt), detectionOut)
     model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "relu2_2"))
   }
 }

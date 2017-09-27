@@ -7,8 +7,7 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 
-class FrcnnMiniBatch(val input: Table, val target: Tensor[Float],
-  val imInfo: Tensor[Float] = null)
+class FrcnnMiniBatch(val input: Table, val target: Tensor[Float])
   extends MiniBatch[Float] {
 
   private val targetIndices = if (target != null) BboxUtil.getGroundTruthIndices(target) else null
@@ -41,8 +40,8 @@ class FrcnnMiniBatch(val input: Table, val target: Tensor[Float],
 }
 
 object FrcnnMiniBatch {
-  def apply(input: Table, target: Tensor[Float], imInfo: Tensor[Float] = null): FrcnnMiniBatch = {
-    new FrcnnMiniBatch(input, target, imInfo)
+  def apply(input: Table, target: Tensor[Float]): FrcnnMiniBatch = {
+    new FrcnnMiniBatch(input, target)
   }
 
   def getBboxes(batchInput: Tensor[Float]): Tensor[Float] = {

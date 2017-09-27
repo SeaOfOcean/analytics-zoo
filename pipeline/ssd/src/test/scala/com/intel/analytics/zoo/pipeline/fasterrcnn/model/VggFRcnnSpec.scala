@@ -24,7 +24,8 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class VggFRcnnSpec extends FlatSpec with Matchers {
   "faster rcnn graph" should "forward properly" in {
-    val frcnnGraph = VggFRcnn(21).evaluate()
+    val frcnnGraph = VggFRcnn(21,
+      PostProcessParam(0.3f, 21, false, -1, 0)).evaluate()
     val frcnn = VggFRcnnSeq(21).evaluate()
     frcnnGraph.loadModelWeights(frcnn)
 
@@ -57,6 +58,7 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
   def pass(out1: Tensor[Float], out2: Tensor[Float]): Boolean = {
     out1.toTensor[Float].map(out2.toTensor[Float], (a, b) => {
       if (Math.abs(a - b) > 1e-6) {
+        println(a, b)
         return false
       }
       a

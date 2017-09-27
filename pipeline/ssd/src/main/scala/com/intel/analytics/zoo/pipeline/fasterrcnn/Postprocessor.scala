@@ -17,6 +17,7 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn
 
 import com.intel.analytics.bigdl.nn.Nms
+import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, Activity}
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.Table
@@ -30,9 +31,11 @@ import scala.collection.mutable.ArrayBuffer
 
 object Postprocessor {
   val logger = Logger.getLogger(this.getClass)
+
+  def apply(param: PostProcessParam): Postprocessor = new Postprocessor(param)
 }
 
-class Postprocessor(param: PostProcessParam) extends Serializable {
+class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activity, Float] {
 
   @transient var nmsTool: Nms = _
 
@@ -58,6 +61,66 @@ class Postprocessor(param: PostProcessParam) extends Serializable {
       limitMaxPerImage(results)
     }
     results
+  }
+
+  private def resultToTensor(results: Array[RoiLabel]): Tensor[Float] = {
+    var maxDetection = 0
+    results.foreach(res => {
+      if (null != res) {
+        maxDetection += res.size()
+      }
+    })
+    val out = Tensor[Float](1, 1 + maxDetection * 6)
+    val outi = out(1)
+
+    outi.setValue(1, maxDetection)
+    var offset = 2
+    var c = 0
+    results.filter(_ != null).foreach(label => {
+      (1 to label.size()).foreach(j => {
+        outi.setValue(offset, c)
+        outi.setValue(offset + 1, label.classes.valueAt(j))
+        outi.setValue(offset + 2, label.bboxes.valueAt(j, 1))
+        outi.setValue(offset + 3, label.bboxes.valueAt(j, 2))
+        outi.setValue(offset + 4, label.bboxes.valueAt(j, 3))
+        outi.setValue(offset + 5, label.bboxes.valueAt(j, 4))
+        offset += 6
+      })
+      c += 1
+    })
+    out
+//    if (maxDetection > 0) {
+//      var i = 0
+//      while (i < batch) {
+//        val outi = out(i + 1)
+//        var c = 0
+//        outi.setValue(1, maxDetection)
+//        var offset = 2
+//        while (c < allIndices(i).length) {
+//          val indices = allIndices(i)(c)
+//          if (indices != null) {
+//            val indicesNum = allIndicesNum(i)(c)
+//            val locLabel = if (param.shareLocation) allDecodedBboxes(i).length - 1 else c
+//            val bboxes = allDecodedBboxes(i)(locLabel)
+//            var bboxesOffset = allDecodedBboxes(i)(locLabel).storageOffset() - 1
+//            var j = 0
+//            while (j < indicesNum) {
+//              val idx = indices(j)
+//              outi.setValue(offset, c)
+//              outi.setValue(offset + 1, allConfScores(i)(c).valueAt(idx))
+//              outi.setValue(offset + 2, bboxes.valueAt(idx, 1))
+//              outi.setValue(offset + 3, bboxes.valueAt(idx, 2))
+//              outi.setValue(offset + 4, bboxes.valueAt(idx, 3))
+//              outi.setValue(offset + 5, bboxes.valueAt(idx, 4))
+//              offset += 6
+//              j += 1
+//            }
+//          }
+//          c += 1
+//        }
+//        i += 1
+//      }
+//    }
   }
 
   @transient private var areas: Tensor[Float] = _
@@ -163,11 +226,14 @@ class Postprocessor(param: PostProcessParam) extends Serializable {
 
   @transient var boxesBuf: Tensor[Float] = _
 
-  def process(result: Table, imInfo: Tensor[Float]): Array[RoiLabel] = {
-
-    val scores = result[Tensor[Float]](1)
-    val boxDeltas = result[Tensor[Float]](2)
-    val rois = result[Table](3)[Tensor[Float]](1)
+  def process(scores: Tensor[Float],
+    boxDeltas: Tensor[Float],
+    rois: Tensor[Float],
+    imInfo: Tensor[Float]): Array[RoiLabel] = {
+//
+//    val scores = result[Tensor[Float]](1)
+//    val boxDeltas = result[Tensor[Float]](2)
+//    val rois = result[Table](3)[Tensor[Float]](1)
     if (nmsTool == null) nmsTool = new Nms
     // post process
     // unscale back to raw image space
@@ -184,5 +250,23 @@ class Postprocessor(param: PostProcessParam) extends Serializable {
 
   override def clone(): Postprocessor = {
     SerializationUtils.clone(this)
+  }
+
+  override def updateOutput(input: Table): Activity = {
+    if (isTraining()) {
+      output = input
+      return output
+    }
+    val scores = input[Tensor[Float]](1)
+    val boxDeltas = input[Tensor[Float]](2)
+    val rois = input[Table](3)[Tensor[Float]](1)
+    val imInfo = input[Tensor[Float]](7)
+    output = resultToTensor(process(scores, boxDeltas, rois, imInfo))
+    output
+  }
+
+  override def updateGradInput(input: Table, gradOutput: Activity): Table = {
+    gradInput = null
+    gradInput
   }
 }

@@ -20,7 +20,8 @@ import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.zoo.pipeline.common.{DetectionEvaluator, ModuleUtil}
+import com.intel.analytics.bigdl.optim.ValidationMethod
+import com.intel.analytics.zoo.pipeline.common.ModuleUtil
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
@@ -32,7 +33,7 @@ import org.apache.spark.rdd.RDD
 class Validator(model: Module[Float],
   preProcessParam: PreProcessParam,
   postProcessParam: PostProcessParam,
-  evaluator: DetectionEvaluator) {
+  evaluator: ValidationMethod[Float]) {
   val preProcessor = RecordToFeature(true) ->
     BytesToMat() ->
     RandomResize(preProcessParam.scales, preProcessParam.scaleMultipleOf) ->
@@ -43,8 +44,8 @@ class Validator(model: Module[Float],
   ModuleUtil.shareMemory(model)
   val postProcessor = new Postprocessor(postProcessParam)
 
-  def test(rdd: RDD[SSDByteRecord]): Array[(String, Double)] = {
-    Validator.test(rdd, model, preProcessor, postProcessor, evaluator)
+  def test(rdd: RDD[SSDByteRecord]): Unit = {
+    Validator.test(rdd, model, preProcessor, evaluator)
   }
 }
 
@@ -53,34 +54,28 @@ object Validator {
 
   def test(rdd: RDD[SSDByteRecord], model: Module[Float],
     preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch],
-    postProcessor: Postprocessor,
-    evaluator: DetectionEvaluator): Array[(String, Double)] = {
+    evaluator: ValidationMethod[Float]): Unit = {
     model.evaluate()
     val broadcastModel = ModelBroadcast().broadcast(rdd.sparkContext, model)
-    val broadpostprocessor = rdd.sparkContext.broadcast(postProcessor)
     val broadcastEvaluator = rdd.sparkContext.broadcast(evaluator)
     val recordsNum = rdd.sparkContext.accumulator(0, "record number")
     val start = System.nanoTime()
     val output = rdd.mapPartitions(preProcessor(_)).mapPartitions(dataIter => {
       val localModel = broadcastModel.value()
-      val localPostProcessor = broadpostprocessor.value.clone()
       val localEvaluator = broadcastEvaluator.value
       dataIter.map(batch => {
-        val result = localModel.forward(batch.input).toTable
-        val out = localPostProcessor.process(result, batch.imInfo)
+        val result = localModel.forward(batch.input).toTensor
         recordsNum += 1
-        localEvaluator.evaluateBatch(Array(out), batch.target)
+        localEvaluator(result, batch.target)
       })
     }).reduce((left, right) => {
-      left.zip(right).map { case (l, r) =>
-        (l._1 + r._1, l._2 ++ r._2)
-      }
+      left + right
     })
+    logger.info(s"${evaluator} is ${output}")
 
     val totalTime = (System.nanoTime() - start) / 1e9
     logger.info(s"[Prediction] ${recordsNum.value} in $totalTime seconds. Throughput is ${
       recordsNum.value / totalTime
     } record / sec")
-    evaluator.map(output)
   }
 }

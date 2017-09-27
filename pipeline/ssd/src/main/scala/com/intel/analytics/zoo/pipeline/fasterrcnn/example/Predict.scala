@@ -16,12 +16,12 @@
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.example
 
-import com.intel.analytics.bigdl.dataset.image.Visualizer
 import com.intel.analytics.bigdl.nn.Module
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, PvanetFRcnn, VggFRcnn}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{Predictor}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.Predictor
 import com.intel.analytics.bigdl.utils.Engine
-import com.intel.analytics.zoo.pipeline.common.IOUtils
+import com.intel.analytics.zoo.pipeline.common.{BboxUtil, IOUtils}
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.Visualizer
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser
@@ -105,7 +105,8 @@ object Predict {
       val classNames = Source.fromFile(params.classname).getLines().toArray
       val (model, preParam, postParam) = params.modelType match {
         case "vgg16" =>
-          (Module.loadCaffe(VggFRcnn(classNames.length),
+          (Module.loadCaffe(VggFRcnn(classNames.length,
+            PostProcessParam(0.3f, classNames.length, false, -1, 0)),
             params.caffeDefPath, params.caffeModelPath),
             PreProcessParam(params.batch, nPartition = params.nPartition),
             PostProcessParam(0.3f, classNames.length, false, -1, 0))
@@ -127,24 +128,29 @@ object Predict {
       val predictor = new Predictor(model, preParam, postParam)
 
       val start = System.nanoTime()
-      val output = predictor.predict(data).collect()
-      val recordsNum = output.length
+      val output = predictor.predict(data)
+      val recordsNum = output.count()
       val totalTime = (System.nanoTime() - start) / 1e9
       logger.info(s"[Prediction] ${ recordsNum } in $totalTime seconds. Throughput is ${
         recordsNum / totalTime
       } record / sec")
 
       if (params.visualize) {
-        data.map(_.path).zipWithIndex.foreach(pair => {
-          var classIndex = 1
-          val imgId = pair._2.toInt
-          while (classIndex < classNames.length) {
-            Visualizer.visDetection(pair._1, classNames(classIndex),
-              output(imgId)(classIndex).classes,
-              output(imgId)(classIndex).bboxes, thresh = 0.6f, outPath = params.outputFolder)
-            classIndex += 1
-          }
+        paths.zip(output).foreach(pair => {
+          val decoded = BboxUtil.decodeRois(pair._2)
+          Visualizer.visDetection(pair._1, decoded, classNames, outPath = params.outputFolder)
         })
+//        data.map(_.path).zipWithIndex.foreach(pair => {
+//          var classIndex = 1
+//          val imgId = pair._2.toInt
+//          while (classIndex < classNames.length) {
+//            Visualizer.visDetection(pair._1, classNames(classIndex),
+//              output(imgId)(classIndex).classes,
+//              output(imgId)(classIndex).bboxes, thresh = 0.6f, outPath = params.outputFolder)
+//            classIndex += 1
+//          }
+//        })
+
         logger.info(s"labeled images are saved to ${ params.outputFolder }")
       }
     }
