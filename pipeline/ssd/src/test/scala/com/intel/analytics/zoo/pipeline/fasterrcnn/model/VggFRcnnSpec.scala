@@ -56,13 +56,14 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
   }
 
   def pass(out1: Tensor[Float], out2: Tensor[Float]): Boolean = {
+    var status = true
     out1.toTensor[Float].map(out2.toTensor[Float], (a, b) => {
       if (Math.abs(a - b) > 1e-6) {
         println(a, b)
-        return false
+        status = false
       }
       a
     })
-    true
+    status
   }
 }

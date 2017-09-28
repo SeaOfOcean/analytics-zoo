@@ -230,10 +230,6 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
     boxDeltas: Tensor[Float],
     rois: Tensor[Float],
     imInfo: Tensor[Float]): Array[RoiLabel] = {
-//
-//    val scores = result[Tensor[Float]](1)
-//    val boxDeltas = result[Tensor[Float]](2)
-//    val rois = result[Table](3)[Tensor[Float]](1)
     if (nmsTool == null) nmsTool = new Nms
     // post process
     // unscale back to raw image space

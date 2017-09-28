@@ -480,17 +480,18 @@ object BboxUtil {
     if (boxes.size(1) == 0) {
       return boxes
     }
+    val output = Tensor[Float]().resizeAs(deltas)
     require(boxes.size(2) == 4,
       s"boxes size ${ boxes.size().mkString(",") } do not satisfy N*4 size")
-    require(deltas.size(2) % 4 == 0,
-      s"and deltas size ${ deltas.size().mkString(",") } do not satisfy N*4a size")
+    require(output.size(2) % 4 == 0,
+      s"and deltas size ${ output.size().mkString(",") } do not satisfy N*4a size")
     val boxesArr = boxes.storage().array()
     var offset = boxes.storageOffset() - 1
     val rowLength = boxes.stride(1)
-    val deltasArr = deltas.storage().array()
+    val deltasArr = output.storage().array()
     var i = 0
-    val repeat = deltas.size(2) / boxes.size(2)
-    var deltasoffset = deltas.storageOffset() - 1
+    val repeat = output.size(2) / boxes.size(2)
+    var deltasoffset = output.storageOffset() - 1
     while (i < boxes.size(1)) {
       val x1 = boxesArr(offset)
       val y1 = boxesArr(offset + 1)
@@ -516,7 +517,7 @@ object BboxUtil {
       offset += rowLength
       i += 1
     }
-    deltas
+    output
   }
 
   /**
