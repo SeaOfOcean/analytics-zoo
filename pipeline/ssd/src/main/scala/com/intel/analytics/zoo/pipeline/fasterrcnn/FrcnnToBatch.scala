@@ -33,7 +33,6 @@ class FrcnnToBatch(totalBatch: Int,
 
   override def apply(prev: Iterator[ImageFeature]): Iterator[FrcnnMiniBatch] = {
     val batchSizePerPartition = batchPerPartition
-    println("batchSizePerPartition: " + batchSizePerPartition)
     new Iterator[FrcnnMiniBatch] {
       private val inputBatch: Table = T()
       private val labelTensor: Tensor[Float] = Tensor[Float]()
@@ -58,7 +57,6 @@ class FrcnnToBatch(totalBatch: Int,
             val feature = prev.next()
             height = feature.getHeight()
             width = feature.getWidth()
-            println(height, width)
             if (imInfoData == null) {
               imInfoData = new Array[Float](batchSize * 4)
               maps = new Array[ImageFeature](batchSize)

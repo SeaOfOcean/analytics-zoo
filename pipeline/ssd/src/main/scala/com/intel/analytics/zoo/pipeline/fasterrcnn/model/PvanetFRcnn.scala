@@ -263,7 +263,7 @@ object PvanetFRcnn {
   }
 
 
-  def apply(nClass: Int): Module[Float] = {
+  def apply(nClass: Int, postProcessParam: PostProcessParam): Module[Float] = {
     val anchorParam = AnchorParam(_scales = Array[Float](3, 6, 9, 16, 32),
       _ratios = Array(0.5f, 0.667f, 1.0f, 1.5f, 2.0f))
     // Number of top scoring boxes to keep before apply NMS to RPN proposals

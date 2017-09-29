@@ -23,15 +23,14 @@ import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.zoo.pipeline.common.ModuleUtil
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
 import org.apache.spark.rdd.RDD
 
 class Predictor(
   model: Module[Float],
-  preProcessParam: PreProcessParam,
-  postProcessParam: PostProcessParam) {
+  preProcessParam: PreProcessParam) {
 
   val preProcessor = RecordToFeature(true) ->
     BytesToMat() ->
@@ -40,27 +39,28 @@ class Predictor(
     FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
   ModuleUtil.shareMemory(model)
-  val postProcessor = new Postprocessor(postProcessParam)
 
   def predict(rdd: RDD[SSDByteRecord]): RDD[Tensor[Float]] = {
-    Predictor.predict(rdd, model, preProcessor, postProcessor)
+    Predictor.predict(rdd, model, preProcessor)
   }
 }
 
 object Predictor {
   def predict(rdd: RDD[SSDByteRecord],
     model: Module[Float],
-    preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch],
-    postProcessor: Postprocessor
+    preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch]
   ): RDD[Tensor[Float]] = {
     model.evaluate()
     val broadcastModel = ModelBroadcast().broadcast(rdd.sparkContext, model)
-    val broadpostprocessor = rdd.sparkContext.broadcast(postProcessor)
     rdd.mapPartitions(preProcessor(_)).mapPartitions(dataIter => {
       val localModel = broadcastModel.value()
-      val localPostProcessor = broadpostprocessor.value.clone()
-      dataIter.map(batch => {
-        localModel.forward(batch.getInput()).toTensor[Float]
+      dataIter.flatMap(batch => {
+        val result = localModel.forward(batch.getSample()).toTensor[Float]
+        if (result.dim() == 1) {
+          Array(result)
+        } else {
+          result.split(1)
+        }
       })
     })
   }

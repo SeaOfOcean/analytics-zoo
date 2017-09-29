@@ -23,7 +23,7 @@ import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.ValidationMethod
 import com.intel.analytics.zoo.pipeline.common.ModuleUtil
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
 import org.apache.log4j.Logger
@@ -32,7 +32,6 @@ import org.apache.spark.rdd.RDD
 
 class Validator(model: Module[Float],
   preProcessParam: PreProcessParam,
-  postProcessParam: PostProcessParam,
   evaluator: ValidationMethod[Float]) {
   val preProcessor = RecordToFeature(true) ->
     BytesToMat() ->
@@ -42,7 +41,6 @@ class Validator(model: Module[Float],
 
 
   ModuleUtil.shareMemory(model)
-  val postProcessor = new Postprocessor(postProcessParam)
 
   def test(rdd: RDD[SSDByteRecord]): Unit = {
     Validator.test(rdd, model, preProcessor, evaluator)
@@ -64,7 +62,7 @@ object Validator {
       val localModel = broadcastModel.value()
       val localEvaluator = broadcastEvaluator.value
       dataIter.map(batch => {
-        val result = localModel.forward(batch.input).toTensor
+        val result = localModel.forward(batch.getSample()).toTensor
         recordsNum += 1
         localEvaluator(result, batch.target)
       })

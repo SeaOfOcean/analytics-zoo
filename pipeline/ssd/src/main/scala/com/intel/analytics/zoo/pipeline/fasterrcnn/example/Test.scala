@@ -85,23 +85,22 @@ object Test {
       val evaluator = new MeanAveragePrecision(true, normalized = false,
         nClass = params.nClass)
       val rdd = IOUtils.loadSeqFiles(params.nPartition, params.folder, sc)
-      val (model, preParam, postParam) = params.modelType.toLowerCase() match {
+      val (model, preParam) = params.modelType.toLowerCase() match {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(params.nClass,
             PostProcessParam(0.3f, params.nClass, false, 100, 0.05)),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(params.batch, nPartition = params.nPartition),
-            PostProcessParam(0.3f, params.nClass, false, 100, 0.05))
+            PreProcessParam(params.batch, nPartition = params.nPartition))
         case "pvanet" =>
-          (Module.loadCaffe(PvanetFRcnn(params.nClass),
+          (Module.loadCaffe(PvanetFRcnn(params.nClass,
+            PostProcessParam(0.4f, params.nClass, true, 100, 0.05)),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition),
-            PostProcessParam(0.4f, params.nClass, true, 100, 0.05))
+            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition))
         case _ =>
           throw new Exception("unsupport network")
       }
 
-      val validator = new Validator(model, preParam, postParam, evaluator)
+      val validator = new Validator(model, preParam, evaluator)
 
       validator.test(rdd._1)
     }

@@ -331,6 +331,7 @@ object BboxUtil {
   }
 
   def decodeRois(output: Tensor[Float]): Tensor[Float] = {
+    println(output.size().mkString("x"))
     val num = output.valueAt(1).toInt
     require(num >= 0)
     if (num == 0) {

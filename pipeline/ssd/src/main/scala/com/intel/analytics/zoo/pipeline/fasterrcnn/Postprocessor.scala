@@ -75,52 +75,21 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
 
     outi.setValue(1, maxDetection)
     var offset = 2
-    var c = 0
-    results.filter(_ != null).foreach(label => {
-      (1 to label.size()).foreach(j => {
-        outi.setValue(offset, c)
-        outi.setValue(offset + 1, label.classes.valueAt(j))
-        outi.setValue(offset + 2, label.bboxes.valueAt(j, 1))
-        outi.setValue(offset + 3, label.bboxes.valueAt(j, 2))
-        outi.setValue(offset + 4, label.bboxes.valueAt(j, 3))
-        outi.setValue(offset + 5, label.bboxes.valueAt(j, 4))
-        offset += 6
-      })
-      c += 1
+    (0 until param.nClasses).foreach(c => {
+      val label = results(c)
+      if (null != label) {
+        (1 to label.size()).foreach(j => {
+          outi.setValue(offset, c)
+          outi.setValue(offset + 1, label.classes.valueAt(j))
+          outi.setValue(offset + 2, label.bboxes.valueAt(j, 1))
+          outi.setValue(offset + 3, label.bboxes.valueAt(j, 2))
+          outi.setValue(offset + 4, label.bboxes.valueAt(j, 3))
+          outi.setValue(offset + 5, label.bboxes.valueAt(j, 4))
+          offset += 6
+        })
+      }
     })
     out
-//    if (maxDetection > 0) {
-//      var i = 0
-//      while (i < batch) {
-//        val outi = out(i + 1)
-//        var c = 0
-//        outi.setValue(1, maxDetection)
-//        var offset = 2
-//        while (c < allIndices(i).length) {
-//          val indices = allIndices(i)(c)
-//          if (indices != null) {
-//            val indicesNum = allIndicesNum(i)(c)
-//            val locLabel = if (param.shareLocation) allDecodedBboxes(i).length - 1 else c
-//            val bboxes = allDecodedBboxes(i)(locLabel)
-//            var bboxesOffset = allDecodedBboxes(i)(locLabel).storageOffset() - 1
-//            var j = 0
-//            while (j < indicesNum) {
-//              val idx = indices(j)
-//              outi.setValue(offset, c)
-//              outi.setValue(offset + 1, allConfScores(i)(c).valueAt(idx))
-//              outi.setValue(offset + 2, bboxes.valueAt(idx, 1))
-//              outi.setValue(offset + 3, bboxes.valueAt(idx, 2))
-//              outi.setValue(offset + 4, bboxes.valueAt(idx, 3))
-//              outi.setValue(offset + 5, bboxes.valueAt(idx, 4))
-//              offset += 6
-//              j += 1
-//            }
-//          }
-//          c += 1
-//        }
-//        i += 1
-//      }
-//    }
   }
 
   @transient private var areas: Tensor[Float] = _

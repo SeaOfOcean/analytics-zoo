@@ -103,18 +103,17 @@ object Predict {
       Engine.init
 
       val classNames = Source.fromFile(params.classname).getLines().toArray
-      val (model, preParam, postParam) = params.modelType match {
+      val (model, preParam) = params.modelType match {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(classNames.length,
             PostProcessParam(0.3f, classNames.length, false, -1, 0)),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(params.batch, nPartition = params.nPartition),
-            PostProcessParam(0.3f, classNames.length, false, -1, 0))
+            PreProcessParam(params.batch, nPartition = params.nPartition))
         case "pvanet" =>
-          (Module.loadCaffe(PvanetFRcnn(classNames.length),
+          (Module.loadCaffe(PvanetFRcnn(classNames.length,
+            PostProcessParam(0.4f, classNames.length, true, -1, 0)),
             params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition),
-            PostProcessParam(0.4f, classNames.length, true, -1, 0))
+            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition))
         case _ =>
           throw new Exception("unsupport network")
       }
@@ -125,10 +124,13 @@ object Predict {
         case _ => throw new IllegalArgumentException(s"invalid folder name ${ params.folderType }")
       }
 
-      val predictor = new Predictor(model, preParam, postParam)
+      val predictor = new Predictor(model, preParam)
 
       val start = System.nanoTime()
       val output = predictor.predict(data)
+      if (params.visualize) {
+        output.cache()
+      }
       val recordsNum = output.count()
       val totalTime = (System.nanoTime() - start) / 1e9
       logger.info(s"[Prediction] ${ recordsNum } in $totalTime seconds. Throughput is ${
@@ -138,18 +140,9 @@ object Predict {
       if (params.visualize) {
         paths.zip(output).foreach(pair => {
           val decoded = BboxUtil.decodeRois(pair._2)
-          Visualizer.visDetection(pair._1, decoded, classNames, outPath = params.outputFolder)
+          Visualizer.visDetection(pair._1, decoded, classNames, thresh = 0.6f,
+            outPath = params.outputFolder)
         })
-//        data.map(_.path).zipWithIndex.foreach(pair => {
-//          var classIndex = 1
-//          val imgId = pair._2.toInt
-//          while (classIndex < classNames.length) {
-//            Visualizer.visDetection(pair._1, classNames(classIndex),
-//              output(imgId)(classIndex).classes,
-//              output(imgId)(classIndex).bboxes, thresh = 0.6f, outPath = params.outputFolder)
-//            classIndex += 1
-//          }
-//        })
 
         logger.info(s"labeled images are saved to ${ params.outputFolder }")
       }

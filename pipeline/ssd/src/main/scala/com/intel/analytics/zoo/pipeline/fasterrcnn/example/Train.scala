@@ -126,21 +126,20 @@ object Train {
       val sc = new SparkContext(conf)
       Engine.init
 
-      val (model, preParam, postParam) = param.modelType match {
+      val (model, preParam) = param.modelType match {
         case "vgg16" =>
           (VggFRcnn(param.classNumber,
             PostProcessParam(0.3f, param.classNumber, false, -1, 0)),
-            PreProcessParam(param.batchSize),
-            PostProcessParam(0.3f, param.classNumber, false, -1, 0))
+            PreProcessParam(param.batchSize, Array(400, 500, 600, 700)))
 //          (Module.loadCaffe(VggFRcnn(param.classNumber),
 //            param.caffeDefPath.get, param.caffeModelPath.get),
 //            PreProcessParam(param.batchSize),
 //            PostProcessParam(0.3f, param.classNumber, false, -1, 0))
         case "pvanet" =>
-          (Module.loadCaffe(PvanetFRcnn(param.classNumber),
+          (Module.loadCaffe(PvanetFRcnn(param.classNumber,
+            PostProcessParam(0.4f, param.classNumber, true, -1, 0)),
             param.caffeDefPath.get, param.caffeModelPath.get),
-            PreProcessParam(param.batchSize, Array(640), 32),
-            PostProcessParam(0.4f, param.classNumber, true, -1, 0))
+            PreProcessParam(param.batchSize, Array(640), 32))
         case _ =>
           throw new Exception("unsupport network")
       }

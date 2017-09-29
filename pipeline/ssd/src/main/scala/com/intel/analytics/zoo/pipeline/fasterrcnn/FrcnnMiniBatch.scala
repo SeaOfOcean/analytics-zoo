@@ -34,6 +34,8 @@ class FrcnnMiniBatch(val input: Table, val target: Tensor[Float])
 
   override def getTarget(): Activity = target
 
+  def getSample(): Table = getInput().toTable[Table](1)
+
   override def set(samples: Seq[Sample[Float]])(implicit ev: TensorNumeric[Float]): this.type = {
     throw new NotImplementedError("do not use Sample here")
   }
