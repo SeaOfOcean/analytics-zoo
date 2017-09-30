@@ -30,6 +30,6 @@ class PvanetParam() extends FasterRcnnParam() {
   RPN_POST_NMS_TOP_N = 2000
   override val BG_THRESH_LO = 0.0
   BBOX_NORMALIZE_TARGETS_PRECOMPUTED = true
-  override val modelType = Model.PVANET
+  override val modelType = "PVANET"
 
 }

@@ -18,19 +18,6 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.Model.ModelType
-
-
-object Phase extends Enumeration {
-  type PhaseType = Value
-  val TRAIN, TEST = Value
-
-}
-
-object Model extends Enumeration {
-  type ModelType = Value
-  val VGG16, PVANET = Value
-}
 
 abstract class FasterRcnnParam extends Serializable {
   val ratios: Array[Float]
@@ -106,7 +93,7 @@ abstract class FasterRcnnParam extends Serializable {
   // Apply bounding box voting
   val BBOX_VOTE = false
 
-  val modelType: ModelType
+  val modelType: String
 }
 
 

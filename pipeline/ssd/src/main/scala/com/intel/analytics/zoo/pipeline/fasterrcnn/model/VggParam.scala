@@ -17,7 +17,6 @@
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.Model.ModelType
 
 case class VggParam() extends FasterRcnnParam {
 //  val anchorParam = AnchorParam(_scales = Array[Float](8, 16, 32),
@@ -26,7 +25,7 @@ case class VggParam() extends FasterRcnnParam {
   val scales = Array[Float](8, 16, 32)
   override val BG_THRESH_LO = 0.0
   override val BATCH_SIZE = 128
-  override val modelType: ModelType = Model.VGG16
+  override val modelType: String = "VGG16"
 
   RPN_PRE_NMS_TOP_N = 12000
   RPN_POST_NMS_TOP_N = 2000
