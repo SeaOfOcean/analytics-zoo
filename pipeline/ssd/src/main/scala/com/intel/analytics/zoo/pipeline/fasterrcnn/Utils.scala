@@ -23,8 +23,8 @@ import com.intel.analytics.zoo.pipeline.common.IOUtils
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.RecordToFeature
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnMiniBatch, FrcnnToBatch}
-import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
-import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
+import com.intel.analytics.zoo.transform.vision.image.augmentation.{HFlip, RandomResize}
+import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats, RandomTransformer}
 import com.intel.analytics.zoo.transform.vision.label.roi._
 import org.apache.spark.SparkContext
 
@@ -35,8 +35,8 @@ object Utils {
     val trainRdd = IOUtils.loadSeqFiles(Engine.nodeNumber, folder, sc)._1
     DataSet.rdd(trainRdd) -> RecordToFeature(true) ->
       BytesToMat() ->
-      RandomResize(param.scales, param.scaleMultipleOf) ->
-      RoiResize() ->
+      RandomResize(param.scales, param.scaleMultipleOf) -> RoiResize() ->
+      RandomTransformer(HFlip() -> RoiHFlip(), 0.5) ->
       MatToFloats(validHeight = 600, validWidth = 600,
         meanRGB = Some(122.7717f, 115.9465f, 102.9801f)) ->
       FrcnnToBatch(batchSize, true)

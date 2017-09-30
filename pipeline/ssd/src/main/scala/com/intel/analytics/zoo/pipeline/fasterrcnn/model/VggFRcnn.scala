@@ -63,8 +63,6 @@ object VggFRcnn {
     relu5_3
   }
 
-
-//  val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
   val rpnPreNmsTopN = 6000
   val rpnPostNmsTopN = 300
 
