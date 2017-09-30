@@ -59,14 +59,15 @@ case class RoiCrop() extends FeatureTransformer {
   }
 }
 
-case class RoiHFlip() extends FeatureTransformer {
+case class RoiHFlip(normalized: Boolean = true) extends FeatureTransformer {
   override def transformMat(feature: ImageFeature): Unit = {
     require(feature.hasLabel())
     val roiLabel = feature.getLabel[RoiLabel]
     var i = 1
+    val width = if (normalized) 1 else feature.getWidth()
     while (roiLabel.bboxes.nElement() > 0 && i <= roiLabel.bboxes.size(1)) {
-      val x1 = 1 - roiLabel.bboxes.valueAt(i, 1)
-      roiLabel.bboxes.setValue(i, 1, 1 - roiLabel.bboxes.valueAt(i, 3))
+      val x1 = width - roiLabel.bboxes.valueAt(i, 1)
+      roiLabel.bboxes.setValue(i, 1, width - roiLabel.bboxes.valueAt(i, 3))
       roiLabel.bboxes.setValue(i, 3, x1)
       i += 1
     }
@@ -102,27 +103,29 @@ case class RoiExpand() extends FeatureTransformer {
   }
 }
 
-case class RoiResize() extends FeatureTransformer {
+case class RoiResize(normalized: Boolean = false) extends FeatureTransformer {
   override def transformMat(feature: ImageFeature): Unit = {
     require(feature.hasLabel())
-    val scaledW = feature.getOriginalWidth / feature.getWidth().toFloat
-    val scaledH = feature.getOriginalHeight / feature.getHeight().toFloat
-    val target = feature.getLabel[RoiLabel]
-    // todo: not sure whether need to filter diff or not
+    if (!normalized) {
+      val scaledW = feature.getWidth().toFloat / feature.getOriginalWidth
+      val scaledH = feature.getHeight().toFloat / feature.getOriginalHeight
+      val target = feature.getLabel[RoiLabel]
+      // todo: not sure whether need to filter diff or not
 //    val gtInds = target.classes.storage().array().zip(Stream from 1)
 //      .filter(x => x._1 != 0).map(x => x._2)
 //    val resizedBoxes = Tensor[Float](target, 5)
-    var i = 0
-    while (i < target.size()) {
-      BboxUtil.scaleBBox(target.bboxes, scaledH, scaledW)
+// var i = 0
+//      while (i < target.size()) {
+        BboxUtil.scaleBBox(target.bboxes, scaledH, scaledW)
 //      resizedBoxes.setValue(i + 1, 1, target.bboxes.valueAt(gtInds(i), 1) * scaledH)
 //      resizedBoxes.setValue(i + 1, 2, target.bboxes.valueAt(gtInds(i), 2) * scaledW)
 //      resizedBoxes.setValue(i + 1, 3, target.bboxes.valueAt(gtInds(i), 3) * scaledH)
 //      resizedBoxes.setValue(i + 1, 4, target.bboxes.valueAt(gtInds(i), 4) * scaledW)
 //      resizedBoxes.setValue(i + 1, 5, target.classes.valueAt(1, gtInds(i)))
-      i += 1
-    }
+//        i += 1
+//      }
 //    target.bboxes.resizeAs(resizedBoxes).copy(resizedBoxes)
+    }
   }
 }
 
