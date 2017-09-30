@@ -18,6 +18,7 @@
 package com.intel.analytics.zoo.pipeline.common
 
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
+import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.transform.vision.util.NormalizedBox
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -261,5 +262,11 @@ class BboxUtilSpec extends FlatSpec with Matchers {
     labelgt(3).valueAt(1, 1) should be(6)
     labelgt(4).size(1) should be(1)
     labelgt(4).valueAt(1, 1) should be(7)
+  }
+
+  "decodeRoi" should "work properly" in {
+    val tensor = Tensor[Float](T(0))
+    println(tensor)
+    BboxUtil.decodeRois(tensor, 21)
   }
 }

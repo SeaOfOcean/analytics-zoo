@@ -315,9 +315,7 @@ object BboxUtil {
 
   def decodeRois(output: Tensor[Float], nclass: Int)
   : Array[RoiLabel] = {
-    val num = output.valueAt(1).toInt
-    val result = output.narrow(1, 2, num * 6).view(num, 6)
-
+    val result = decodeRois(output)
     val indices = getClassIndices(result)
     val decoded = new Array[RoiLabel](nclass)
     val iter = indices.iterator
@@ -331,9 +329,8 @@ object BboxUtil {
   }
 
   def decodeRois(output: Tensor[Float]): Tensor[Float] = {
-    println(output.size().mkString("x"))
     val num = output.valueAt(1).toInt
-    require(num >= 0)
+    require(num >= 0, "output number should >= 0")
     if (num == 0) {
       Tensor[Float]()
     } else {

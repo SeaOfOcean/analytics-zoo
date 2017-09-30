@@ -18,14 +18,13 @@ package com.intel.analytics.zoo.pipeline.common
 
 import com.intel.analytics.bigdl.nn.abstractnn.Activity
 import com.intel.analytics.bigdl.optim.{ValidationMethod, ValidationResult}
-import com.intel.analytics.zoo.pipeline.common.dataset.PascalVoc._
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.zoo.pipeline.common.dataset.PascalVoc._
 import org.apache.commons.lang3.SerializationUtils
 
 class MeanAveragePrecision(use07metric: Boolean, normalized: Boolean = true, nClass: Int)
   extends ValidationMethod[Float] {
   override def apply(output: Activity, target: Activity): ValidationResult = {
-    println("evaluate: " + output.toTensor[Float].size().mkString("x"))
     val out = BboxUtil.decodeBatchOutput(output.toTensor, nClass)
     val gt = target.toTensor[Float]
     var i = 0

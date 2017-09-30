@@ -17,6 +17,8 @@
 
 package com.intel.analytics.zoo.pipeline.common
 
+import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
+import com.intel.analytics.bigdl.utils.T
 import org.scalatest.{FlatSpec, Matchers}
 
 
@@ -100,5 +102,14 @@ class EvalUtilSpec extends FlatSpec with Matchers {
     val ap = EvalUtil.computeAP(res, true, 3)
 
     assert((ap - 1).abs < 1e-6)
+  }
+
+  "MeanAveragePrecisition" should "work" in {
+    val map = new MeanAveragePrecision(true, nClass = 21)
+    val input = Tensor[Float](T(0)).resize(1, 1)
+    val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
+      .map(_.toFloat))).resize(1, 7)
+    val res = map(input, target)
+    res.result()._1 should be (0)
   }
 }
