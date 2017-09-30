@@ -77,9 +77,16 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   }
 
   override def updateGradInput(input: Table, target: Tensor[Float]): Table = {
-    gradInput = criterion.updateGradInput(data, label)
-    gradInput.insert(5, T(Tensor(), Tensor(), Tensor(), Tensor(), Tensor()))
+//    cls_prob, bbox_pred, roi_data,
+//    rpn_cls_score_reshape, rpn_bbox_pred, rpn_data, imInfo
+    criterion.updateGradInput(data, label)
+    gradInput.insert(1, criterion.gradInput(1))
+    gradInput.insert(2, criterion.gradInput(2))
+    gradInput.insert(3, T(Tensor(), Tensor(), Tensor(), Tensor(), Tensor()))
+    gradInput.insert(4, criterion.gradInput(3))
+    gradInput.insert(5, criterion.gradInput(4))
     gradInput.insert(6, T(Tensor(), Tensor(), Tensor(), Tensor()))
+    gradInput.insert(7, Tensor())
     gradInput
   }
 }

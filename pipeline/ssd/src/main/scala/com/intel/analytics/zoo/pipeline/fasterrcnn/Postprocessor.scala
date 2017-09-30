@@ -231,7 +231,7 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
   }
 
   override def updateGradInput(input: Table, gradOutput: Activity): Table = {
-    gradInput = null
+    gradInput = gradOutput.toTable
     gradInput
   }
 }
