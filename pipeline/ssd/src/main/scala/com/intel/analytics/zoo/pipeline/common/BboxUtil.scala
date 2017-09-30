@@ -16,7 +16,7 @@
 
 package com.intel.analytics.zoo.pipeline.common
 
-import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
 import com.intel.analytics.zoo.transform.vision.util.NormalizedBox
@@ -73,6 +73,7 @@ object BboxUtil {
       res
     }
   }
+
   /**
    * return the max value in rows(d=0) or in cols(d=1)
    * arr = [4 9
@@ -81,7 +82,6 @@ object BboxUtil {
    *
    * argmax2(arr, 1) will return 3, 1
    * argmax2(arr, 2) will return 2, 2, 1
-   *
    * @return
    * todo: this maybe removed
    */
@@ -89,40 +89,72 @@ object BboxUtil {
     require(d >= 1)
     arr.max(d)._2.storage().array().map(x => x.toInt)
   }
-  def selectCol(mat: Tensor[Float], cid: Int): Tensor[Float] = {
-    if (mat.nElement() == 0) return Tensor[Float](0)
-    mat.select(2, cid)
+
+  /**
+   * Bounding-box regression targets (bboxTargetData) are stored in a
+   * compact form N x (class, tx, ty, tw, th)
+   * *
+   * This function expands those targets into the 4-of-4*K representation used
+   * by the network (i.e. only one class has non-zero targets).
+   * *
+   * Returns:
+   * bbox_target (ndarray): N x 4K blob of regression targets
+   * bbox_inside_weights (ndarray): N x 4K blob of loss weights
+   *
+   */
+  def getBboxRegressionLabels(bboxTargetData: Tensor[Float],
+    numClasses: Int): (Tensor[Float], Tensor[Float]) = {
+    // Deprecated (inside weights)
+    val BBOX_INSIDE_WEIGHTS = Tensor(Storage(Array(1.0f, 1.0f, 1.0f, 1.0f)))
+    val bboxTargets = Tensor[Float](bboxTargetData.size(1), 4 * numClasses)
+    val bboxInsideWeights = Tensor[Float]().resizeAs(bboxTargets)
+    (0 until bboxTargetData.size(1)).foreach(ind => {
+      val cls = bboxTargetData.valueAt(ind + 1, 1)
+      if (cls > 0) {
+        val start = 4 * cls.toInt
+        (2 to bboxTargetData.size(2)).foreach(x => {
+          logger.warn(bboxTargets.size().mkString("x"), ind + 1, x + start - 1)
+          bboxTargets.setValue(ind + 1, x + start - 1, bboxTargetData.valueAt(ind + 1, x))
+          bboxInsideWeights.setValue(ind + 1, x + start - 1,
+            BBOX_INSIDE_WEIGHTS.valueAt(x - 1))
+        })
+      }
+    })
+    (bboxTargets, bboxInsideWeights)
   }
 
-  def vertcat[T: ClassTag](tensors: Tensor[T]*)(implicit ev: TensorNumeric[T]): Tensor[T] = {
-    require(tensors(0).dim() <= 2, "currently only support 1D or 2D")
-
-    def getRowCol(tensor: Tensor[T]): (Int, Int) = {
-      if (tensors(0).nDimension() == 2) {
-        (tensor.size(1), tensor.size(2))
-      } else {
-        (1, tensor.size(1))
-      }
-    }
-
-    var nRows = getRowCol(tensors(0))._1
-    val nCols = getRowCol(tensors(0))._2
+  def vertcat2D[T: ClassTag](tensors: Tensor[T]*)
+    (implicit ev: TensorNumeric[T]): Tensor[T] = {
+    require(tensors(0).dim() == 2, "only support 2D")
+    var nRows = tensors(0).size(1)
+    val nCols = tensors(0).size(2)
     for (i <- 1 until tensors.length) {
-      require(getRowCol(tensors(i))._2 == nCols, "the cols length must be equal")
-      nRows += getRowCol(tensors(i))._1
+      require(tensors(i).size(2) == nCols, "the cols length must be equal")
+      nRows += tensors(i).size(1)
     }
     val resData = Tensor[T](nRows, nCols)
     var id = 0
     tensors.foreach { tensor =>
-      if (tensor.nDimension() == 1) {
+      (1 to tensor.size(1)).foreach(rid => {
         id = id + 1
-        resData.update(id, tensor)
-      } else {
-        (1 to getRowCol(tensor)._1).foreach(rid => {
-          id = id + 1
-          resData.update(id, tensor(rid))
-        })
-      }
+        resData.update(id, tensor(rid))
+      })
+    }
+    resData
+  }
+
+  def vertcat1D[T: ClassTag](tensors: Tensor[T]*)
+    (implicit ev: TensorNumeric[T]): Tensor[T] = {
+    require(tensors(0).dim() == 1, "only support 1D")
+    val nCols = tensors(0).size(1)
+    for (i <- 1 until tensors.length) {
+      require(tensors(i).size(1) == nCols, "the cols length must be equal")
+    }
+    val resData = Tensor[T](tensors.size, nCols)
+    var id = 0
+    tensors.foreach { tensor =>
+      id = id + 1
+      resData.update(id, tensor)
     }
     resData
   }
@@ -163,7 +195,7 @@ object BboxUtil {
 
   /**
    *
-   * @param boxes      (N, 4) ndarray of float
+   * @param boxes (N, 4) ndarray of float
    * @param queryBoxes (K, >=4) ndarray of float
    * @return overlaps: (N, K) ndarray of overlap between boxes and query_boxes
    */
@@ -254,24 +286,34 @@ object BboxUtil {
     out
   }
 
-  def bboxTransform(exRois: Tensor[Float], gtRois: Tensor[Float]): Tensor[Float] = {
-    val exWidths = exRois.select(2, 3) - exRois.select(2, 1) + 1.0f
-    val exHeights = exRois.select(2, 4) - exRois.select(2, 2) + 1.0f
-    val exCtrX = exRois.select(2, 1) + exWidths * 0.5f
-    val exCtrY = exRois.select(2, 2) + exHeights * 0.5f
+  def bboxTransform(sampledRois: Tensor[Float], gtRois: Tensor[Float]): Tensor[Float] = {
+    require(sampledRois.size(1) == gtRois.size(1), "each sampledRois should have a gtRoi")
+    require(sampledRois.size(2) == 4)
+    require(gtRois.size(2) == 4)
+    val transformed = Tensor[Float].resizeAs(sampledRois).copy(sampledRois)
 
-    val gtWidths = selectCol(gtRois, 3) - selectCol(gtRois, 1) + 1.0f
-    val gtHeights = selectCol(gtRois, 4) - selectCol(gtRois, 2) + 1.0f
-    val gtCtrX = selectCol(gtRois, 1) + gtWidths * 0.5f
-    val gtCtrY = selectCol(gtRois, 2) + gtHeights * 0.5f
+    (1 to sampledRois.size(1)).foreach(i => {
+      val sampleWidth = sampledRois.valueAt(i, 3) - sampledRois.valueAt(i, 1) + 1.0f
+      val sampleHeight = sampledRois.valueAt(i, 4) - sampledRois.valueAt(i, 2) + 1.0f
+      val sampleCtrX = sampledRois.valueAt(i, 1) + sampleWidth * 0.5f
+      val sampleCtrY = sampledRois.valueAt(i, 2) + sampleHeight * 0.5f
 
-    val targetsDx = (gtCtrX - exCtrX) / exWidths
-    val targetsDy = (gtCtrY - exCtrY) / exHeights
-    val targetsDw = gtWidths.cdiv(exWidths).log()
-    val targetsDh = gtHeights.cdiv(exHeights).log()
+      val gtWidth = gtRois.valueAt(i, 3) - gtRois.valueAt(i, 1) + 1.0f
+      val gtHeight = gtRois.valueAt(i, 4) - gtRois.valueAt(i, 2) + 1.0f
+      val gtCtrX = gtRois.valueAt(i, 1) + gtWidth * 0.5f
+      val gtCtrY = gtRois.valueAt(i, 2) + gtHeight * 0.5f
 
-    val res = vertcat(targetsDx, targetsDy, targetsDw, targetsDh)
-    res.t().contiguous()
+      // targetsDx
+      transformed.setValue(i, 1, (gtCtrX - sampleCtrX) / sampleWidth)
+      // targetsDy
+      transformed.setValue(i, 2, (gtCtrY - sampleCtrY) / sampleHeight)
+      // targetsDw
+      transformed.setValue(i, 3, Math.log(gtWidth / sampleWidth).toFloat)
+      // targetsDh
+      transformed.setValue(i, 4, Math.log(gtHeight / sampleHeight).toFloat)
+    })
+
+    transformed
   }
 
 
@@ -480,9 +522,9 @@ object BboxUtil {
     }
     val output = Tensor[Float]().resizeAs(deltas).copy(deltas)
     require(boxes.size(2) == 4,
-      s"boxes size ${ boxes.size().mkString(",") } do not satisfy N*4 size")
+      s"boxes size ${boxes.size().mkString(",")} do not satisfy N*4 size")
     require(output.size(2) % 4 == 0,
-      s"and deltas size ${ output.size().mkString(",") } do not satisfy N*4a size")
+      s"and deltas size ${output.size().mkString(",")} do not satisfy N*4a size")
     val boxesArr = boxes.storage().array()
     var offset = boxes.storageOffset() - 1
     val rowLength = boxes.stride(1)

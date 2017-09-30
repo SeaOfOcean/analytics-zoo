@@ -17,10 +17,13 @@
 
 package com.intel.analytics.zoo.pipeline.common
 
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.transform.vision.util.NormalizedBox
 import org.scalatest.{FlatSpec, Matchers}
+
+import scala.reflect.ClassTag
 
 class BboxUtilSpec extends FlatSpec with Matchers {
   "jaccardOverlap partial overlap" should "work properly" in {
@@ -268,5 +271,116 @@ class BboxUtilSpec extends FlatSpec with Matchers {
     val tensor = Tensor[Float](T(0))
     println(tensor)
     BboxUtil.decodeRois(tensor, 21)
+  }
+
+  "vertex" should "work" in {
+    def vertcat[T: ClassTag](tensors: Tensor[T]*)(implicit ev: TensorNumeric[T]): Tensor[T] = {
+      require(tensors(0).dim() == 2, "currently only support 2D")
+
+      def getRowCol(tensor: Tensor[T]): (Int, Int) = {
+        if (tensors(0).nDimension() == 2) {
+          (tensor.size(1), tensor.size(2))
+        } else {
+          (1, tensor.size(1))
+        }
+      }
+
+      var nRows = getRowCol(tensors(0))._1
+      val nCols = getRowCol(tensors(0))._2
+      for (i <- 1 until tensors.length) {
+        require(getRowCol(tensors(i))._2 == nCols, "the cols length must be equal")
+        nRows += getRowCol(tensors(i))._1
+      }
+      val resData = Tensor[T](nRows, nCols)
+      var id = 0
+      tensors.foreach { tensor =>
+        if (tensor.nDimension() == 1) {
+          id = id + 1
+          resData.update(id, tensor)
+        } else {
+          (1 to getRowCol(tensor)._1).foreach(rid => {
+            id = id + 1
+            resData.update(id, tensor(rid))
+          })
+        }
+      }
+      resData
+    }
+
+    val tensor = Tensor[Float](2, 3).randn()
+    val tensor2 = Tensor[Float](4, 3).randn()
+    val tensor3 = Tensor[Float](3, 3).randn()
+
+    val res = vertcat[Float](tensor, tensor2, tensor3)
+    val res2 = BboxUtil.vertcat2D[Float](tensor, tensor2, tensor3)
+
+    res should equal(res2)
+  }
+
+  "bboxTransform" should "work" in {
+
+    def selectCol(mat: Tensor[Float], cid: Int): Tensor[Float] = {
+      if (mat.nElement() == 0) return Tensor[Float](0)
+      mat.select(2, cid)
+    }
+    def bboxTransform(sampleRois: Tensor[Float], gtRois: Tensor[Float]): Tensor[Float] = {
+      val exWidths = sampleRois.select(2, 3) - sampleRois.select(2, 1) + 1.0f
+      val exHeights = sampleRois.select(2, 4) - sampleRois.select(2, 2) + 1.0f
+      val exCtrX = sampleRois.select(2, 1) + exWidths * 0.5f
+      val exCtrY = sampleRois.select(2, 2) + exHeights * 0.5f
+
+      val gtWidths = selectCol(gtRois, 3) - selectCol(gtRois, 1) + 1.0f
+      val gtHeights = selectCol(gtRois, 4) - selectCol(gtRois, 2) + 1.0f
+      val gtCtrX = selectCol(gtRois, 1) + gtWidths * 0.5f
+      val gtCtrY = selectCol(gtRois, 2) + gtHeights * 0.5f
+
+      val targetsDx = (gtCtrX - exCtrX) / exWidths
+      val targetsDy = (gtCtrY - exCtrY) / exHeights
+      val targetsDw = gtWidths.cdiv(exWidths).log()
+      val targetsDh = gtHeights.cdiv(exHeights).log()
+
+      val res = BboxUtil.vertcat1D(targetsDx, targetsDy, targetsDw, targetsDh)
+      res.t().contiguous()
+    }
+
+    val t1 = Tensor[Float](8, 4).rand()
+    val t2 = Tensor[Float](8, 4).rand()
+
+    val res = bboxTransform(t1.clone(), t2.clone())
+    val res2 = BboxUtil.bboxTransform(t1.clone(), t2.clone())
+    res should be(res2)
+  }
+
+  "getBboxRegressionLabels" should "work" in {
+    def getBboxRegressionLabels(bboxTargetData: Tensor[Float],
+      numClasses: Int): (Tensor[Float], Tensor[Float]) = {
+
+      // Deprecated (inside weights)
+      val BBOX_INSIDE_WEIGHTS = Tensor(Storage(Array(1.0f, 1.0f, 1.0f, 1.0f)))
+      val label = bboxTargetData.select(2, 1).clone().storage().array()
+      val bbox_targets = Tensor[Float](label.length, 4 * numClasses)
+      val bbox_inside_weights = Tensor[Float]().resizeAs(bbox_targets)
+      val inds = label.zipWithIndex.filter(x => x._1 > 0).map(x => x._2)
+      inds.foreach(ind => {
+        val cls = label(ind)
+        val start = 4 * cls
+        (2 to bboxTargetData.size(2)).foreach(x => {
+          bbox_targets.setValue(ind + 1, x + start.toInt - 1, bboxTargetData.valueAt(ind + 1, x))
+          bbox_inside_weights.setValue(ind + 1, x + start.toInt - 1,
+            BBOX_INSIDE_WEIGHTS.valueAt(x - 1))
+        })
+      })
+      (bbox_targets, bbox_inside_weights)
+    }
+
+    val input = Tensor[Float](10, 5).randn()
+
+    // Deprecated (inside weights)
+    val BBOX_INSIDE_WEIGHTS = Tensor(Storage(Array(1.0f, 1.0f, 1.0f, 1.0f)))
+    (1 to 10).foreach(i => input.setValue(i, 1, i - 1))
+    val res = getBboxRegressionLabels(input, 21)
+    val res2 = BboxUtil.getBboxRegressionLabels(input, 21)
+
+    res should be(res2)
   }
 }

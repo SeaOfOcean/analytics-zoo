@@ -29,17 +29,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-//case class BboxTarget(labels: Tensor[Float],
-//  bboxTargets: Tensor[Float],
-//  bboxInsideWeights: Tensor[Float],
-//  bboxOutsideWeights: Tensor[Float]) {
-//
-//  val targetsTable = T()
-//  targetsTable.insert(bboxTargets)
-//  targetsTable.insert(bboxInsideWeights)
-//  targetsTable.insert(bboxOutsideWeights)
-//}
-
 object AnchorTarget {
   val logger = Logger.getLogger(getClass)
 
@@ -66,7 +55,7 @@ class AnchorTarget(param: FasterRcnnParam)
   }
 
 
-  def getAnchors(featureW: Int, featureH: Int, imgW: Int, imgH: Int)
+  private def getAnchors(featureW: Int, featureH: Int, imgW: Int, imgH: Int)
   : (Array[Int], Tensor[Float], Int) = {
     if (anchorTool == null) {
       anchorTool = new Anchor(param.scales, param.ratios)
@@ -74,7 +63,7 @@ class AnchorTarget(param: FasterRcnnParam)
     // 1. Generate proposals from bbox deltas and shifted anchors
     totalAnchors = featureH * featureW * param.anchorNum
     logger.info(s"totalAnchors: $totalAnchors")
-    val allAnchors = anchorTool.generateAnchors(featureW, featureH, 16)
+    val allAnchors = anchorTool.generateAnchors(featureW, featureH)
     // keep only inside anchors
     val indsInside = getIndsInside(imgW, imgH, allAnchors, 0)
     logger.info(s"indsInside: ${indsInside.length}")
@@ -99,10 +88,10 @@ class AnchorTarget(param: FasterRcnnParam)
    */
   def getAnchorTarget(featureH: Int, featureW: Int,
     imgH: Int, imgW: Int, gtBoxes: Tensor[Float], output: Table): Unit = {
+    require(gtBoxes.size(2) == 4, "gtBoxes is not a Nx4 tensor")
     if (anchorTool == null) {
       anchorTool = new Anchor(param.ratios, param.scales)
     }
-    require(gtBoxes.size(2) == 4)
     val anchorNum = param.anchorNum
     val (indsInside, insideAnchors, totalAnchors) = getAnchors(featureW, featureH, imgW, imgH)
 

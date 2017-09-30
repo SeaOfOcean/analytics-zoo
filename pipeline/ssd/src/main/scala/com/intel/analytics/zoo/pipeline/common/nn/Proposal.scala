@@ -92,7 +92,7 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: 
 
     // Generate proposals from bbox deltas and shifted anchors
     // Enumerate all shifts
-    val anchors = anchorUtil.generateAnchors(inputScore.size(4), inputScore.size(3), 16)
+    val anchors = anchorUtil.generateAnchors(inputScore.size(4), inputScore.size(3))
     // Convert anchors into proposals via bbox transformations
     val proposals = BboxUtil.bboxTransformInv(anchors, bboxDeltas)
     // clip predicted boxes to image

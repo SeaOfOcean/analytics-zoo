@@ -35,7 +35,7 @@ class Anchor(ratios: Array[Float], scales: Array[Float]) extends Serializable {
    * @param featStride stride to move
    * @return all anchors over the feature map
    */
-  def generateAnchors(width: Int, height: Int, featStride: Float): Tensor[Float] = {
+  def generateAnchors(width: Int, height: Int, featStride: Float = 16): Tensor[Float] = {
     val (shiftX, shiftY) = generateShifts(width, height, featStride)
     getAllAnchors(shiftX, shiftY, basicAnchors)
   }

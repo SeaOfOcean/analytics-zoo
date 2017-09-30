@@ -24,10 +24,12 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnnParam
+import org.apache.log4j.Logger
 
 import scala.util.Random
 
 object ProposalTarget {
+  val logger = Logger.getLogger(getClass)
   def apply(param: FasterRcnnParam, numClasses: Int)
     (implicit ev: TensorNumeric[Float]): ProposalTarget = new ProposalTarget(param, numClasses)
 }
@@ -47,14 +49,11 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
    * Compute bounding-box regression targets for an image.
    *
    */
-  def computeTargets(ex_rois: Tensor[Float],
-    gt_rois: Tensor[Float],
+  def computeTargets(sampledRois: Tensor[Float],
+    gtRois: Tensor[Float],
     labels: Tensor[Float]): Tensor[Float] = {
-    require(ex_rois.size(1) == gt_rois.size(1))
-    require(ex_rois.size(2) == 4)
-    require(gt_rois.size(2) == 4)
 
-    val targets = BboxUtil.bboxTransform(ex_rois, gt_rois)
+    val targets = BboxUtil.bboxTransform(sampledRois, gtRois)
 
     if (param.BBOX_NORMALIZE_TARGETS_PRECOMPUTED) {
       // Optionally normalize targets by a precomputed mean and stdev
@@ -66,53 +65,31 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     BboxUtil.horzcat(labels.resize(labels.nElement(), 1), targets)
   }
 
-  /**
-   * Bounding-box regression targets (bbox_target_data) are stored in a
-   * compact form N x (class, tx, ty, tw, th)
-   * *
-   * This function expands those targets into the 4-of-4*K representation used
-   * by the network (i.e. only one class has non-zero targets).
-   * *
-   * Returns:
-   * bbox_target (ndarray): N x 4K blob of regression targets
-   * bbox_inside_weights (ndarray): N x 4K blob of loss weights
-   *
-   */
-  def getBboxRegressionLabels(bbox_target_data: Tensor[Float],
-    numClasses: Int): (Tensor[Float], Tensor[Float]) = {
-    val clss = BboxUtil.selectCol(bbox_target_data, 1).clone().storage().array()
-    val bbox_targets = Tensor[Float](clss.length, 4 * numClasses)
-    val bbox_inside_weights = Tensor[Float]().resizeAs(bbox_targets)
-    val inds = clss.zipWithIndex.filter(x => x._1 > 0).map(x => x._2)
-    inds.foreach(ind => {
-      val cls = clss(ind)
-      val start = 4 * cls
-      (2 to bbox_target_data.size(2)).foreach(x => {
-        bbox_targets.setValue(ind + 1, x + start.toInt - 1, bbox_target_data.valueAt(ind + 1, x))
-        bbox_inside_weights.setValue(ind + 1, x + start.toInt - 1,
-          param.BBOX_INSIDE_WEIGHTS.valueAt(x - 1))
-      })
-    })
-    (bbox_targets, bbox_inside_weights)
-  }
 
+
+
+  // Fraction of minibatch that is labeled foreground (i.e. class > 0)
+  val FG_FRACTION = 0.25
   val rois_per_image = param.BATCH_SIZE
-  val fg_rois_per_image = round(param.FG_FRACTION * param.BATCH_SIZE).toInt
+  val fgRoisPerImage = round(FG_FRACTION * param.BATCH_SIZE).toInt
 
-  var fg_rois_per_this_image = 0
+  var fgRoisPerThisImage = 0
   var bg_rois_per_this_image = 0
 
-  def selectForeGroundRois(max_overlaps: Tensor[Float]): Array[Int] = {
+  // Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
+  val FG_THRESH = 0.5f
+  private def selectForeGroundRois(maxOverlaps: Tensor[Float]): Array[Int] = {
     // Select foreground RoIs as those with >= FG_THRESH overlap
-    var fg_inds = findAllGeInds(max_overlaps, param.FG_THRESH)
+    var fgInds = maxOverlaps.storage().array().zip(Stream from 1)
+      .filter(x => x._1 >= FG_THRESH).map(x => x._2)
     // Guard against the case when an image has fewer than fg_rois_per_image
     // foreground RoIs
-    fg_rois_per_this_image = Math.min(fg_rois_per_image, fg_inds.length)
+    fgRoisPerThisImage = Math.min(fgRoisPerImage, fgInds.length)
     // Sample foreground regions without replacement
-    if (fg_inds.length > 0) {
-      fg_inds = Random.shuffle(fg_inds.toList).slice(0, fg_rois_per_this_image).toArray
+    if (fgInds.length > 0) {
+      fgInds = Random.shuffle(fgInds.toList).slice(0, fgRoisPerThisImage).toArray
     }
-    fg_inds
+    fgInds
   }
 
   def selectBackgroundRois(max_overlaps: Tensor[Float]): Array[Int] = {
@@ -122,7 +99,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
       .map(x => x._2)
     // Compute number of background RoIs to take from this image (guarding
     // against there being fewer than desired)
-    bg_rois_per_this_image = Math.min(rois_per_image - fg_rois_per_this_image, bg_inds.length)
+    bg_rois_per_this_image = Math.min(rois_per_image - fgRoisPerThisImage, bg_inds.length)
     // Sample background regions without replacement
     if (bg_inds.length > 0) {
       bg_inds = Random.shuffle(bg_inds.toList).slice(0, bg_rois_per_this_image).toArray
@@ -131,51 +108,62 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   }
 
 
-  // Generate a random sample of RoIs comprising foreground and background examples.
-  def sampleRois(all_rois: Tensor[Float],
-    gt_boxes: Tensor[Float])
+  /**
+   * Generate a random sample of RoIs comprising foreground and background examples.
+   * @param roisPlusGts (0, x1, y1, x2, y2)
+   * @param gts GT boxes (index, label, difficult, x1, y1, x2, y2)
+   * @return
+   */
+  def sampleRois(roisPlusGts: Tensor[Float],
+    gts: Tensor[Float])
   : (Tensor[Float], Tensor[Float], Tensor[Float], Tensor[Float]) = {
     // overlaps: (rois x gt_boxes)
-    val overlaps = BboxUtil.bboxOverlap(BboxUtil.selectMatrix(all_rois, Array.range(2, 6), 2),
-      FrcnnMiniBatch.getBboxes(gt_boxes))
+    val overlaps = BboxUtil.bboxOverlap(roisPlusGts.narrow(2, 2, 4), FrcnnMiniBatch.getBboxes(gts))
 
-    val (max_overlaps, gt_assignment) = overlaps.max(2)
+    // for each roi, get the gt with max overlap with it
+    val (maxOverlaps, gtIndices) = overlaps.max(2)
+    // todo: the last few overlap should be 1, they are gt overlap gt
 
-    // todo: optimize this
-    var labels = BboxUtil.selectMatrix2(gt_boxes, gt_assignment.storage().array()
-      .map(x => x.toInt),
-      Array(FrcnnMiniBatch.labelIndex)).squeeze().clone()
+//    var labels = BboxUtil.selectMatrix2(gts, gtIndices.storage().array()
+//      .map(x => x.toInt),
+//      Array(FrcnnMiniBatch.labelIndex)).squeeze().clone()
 
-    val fg_inds = selectForeGroundRois(max_overlaps)
-    val bg_inds = selectBackgroundRois(max_overlaps)
+    // labels for rois
+    var labels = Tensor[Float](gtIndices.nElement())
+    (1 to gtIndices.nElement()).foreach(i => {
+      labels.setValue(i, gts.valueAt(i, FrcnnMiniBatch.labelIndex))
+    })
+
+
+    // from max overlaps, select foreground and background
+    val fgInds = selectForeGroundRois(maxOverlaps)
+    val bg_inds = selectBackgroundRois(maxOverlaps)
     // for test usage
     // fg_inds = FileUtil.loadFeatures("fg_inds_choice").storage().array().map(x => x.toInt + 1)
     // bg_inds = FileUtil.loadFeatures("bg_inds_choice").storage().array().map(x => x.toInt + 1)
+
     // The indices that we're selecting (both fg and bg)
-    val keep_inds = fg_inds ++ bg_inds
+    val keepInds = fgInds ++ bg_inds
 
     // Select sampled values from various arrays:
-    labels = BboxUtil.selectMatrix(labels, keep_inds, 1)
+    labels = BboxUtil.selectMatrix(labels, keepInds, 1)
     // Clamp labels for the background RoIs to 0
-    (fg_rois_per_this_image + 1 to labels.nElement()).foreach(i => labels(i) = 0)
+    (fgRoisPerThisImage + 1 to labels.nElement()).foreach(i => labels(i) = 0)
 
-    val rois = BboxUtil.selectMatrix(all_rois, keep_inds, 1)
-    val keepInds2 = keep_inds.map(x => gt_assignment.valueAt(x, 1).toInt)
-    val bbox_target_data = computeTargets(
-      BboxUtil.selectMatrix(rois, Array.range(2, 6), 2),
-      BboxUtil.selectMatrix(BboxUtil.selectMatrix(gt_boxes, keepInds2, 1),
-        Array.range(FrcnnMiniBatch.x1Index, FrcnnMiniBatch.y2Index + 1), 2), labels)
+    val sampledRois = BboxUtil.selectMatrix(roisPlusGts, keepInds, 1)
+    val keepInds2 = keepInds.map(x => gtIndices.valueAt(x, 1).toInt)
+    val bboxTargetData = computeTargets(
+      sampledRois.narrow(2, 2, 4),
+      BboxUtil.selectMatrix(gts, keepInds2, 1)
+        .narrow(2, FrcnnMiniBatch.x1Index, FrcnnMiniBatch.y2Index),
+      labels)
 
 
-    val (bbox_targets, bbox_inside_weights) =
-      getBboxRegressionLabels(bbox_target_data, numClasses)
-    (labels.squeeze(), rois, bbox_targets, bbox_inside_weights)
+    val (bboxTarget, bboxInsideWeights) =
+      BboxUtil.getBboxRegressionLabels(bboxTargetData, numClasses)
+    (labels.squeeze(), sampledRois, bboxTarget, bboxInsideWeights)
   }
 
-  def findAllGeInds(tensor: Tensor[Float], thresh: Float): Array[Int] = {
-    tensor.storage().array().zip(Stream from 1)
-      .filter(x => x._1 >= param.FG_THRESH).map(x => x._2)
-  }
 
   override def updateOutput(input: Table): Table = {
     if (!isTraining()) {
@@ -185,20 +173,16 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     }
 
     // Proposal ROIs (0, x1, y1, x2, y2) coming from RPN
-    // (i.e., rpn.proposal_layer.ProposalLayer), or any other source
-    val all_roisTen = input[Tensor[Float]](1)
-    // GT boxes (x1, y1, x2, y2, label)
-    // and other times after box coordinates -- normalize to one format
+    val proposalRois = input[Tensor[Float]](1)
+    // GT boxes (index, label, difficult, x1, y1, x2, y2)
     val gts = input[Tensor[Float]](2)
 
     // Include ground-truth boxes in the set of candidate rois
-    val zeros = Tensor[Float](gts.size(1), 1)
-    val all_rois = BboxUtil.vertcat(all_roisTen,
-      BboxUtil.horzcat(zeros, FrcnnMiniBatch.getBboxes(gts)))
+    val roisPlusGts = BboxUtil.vertcat2D(proposalRois, gts.narrow(2, 3, 5))
 
     // Sample rois with classification labels and bounding box regression
     // targets
-    val (labels, rois, bbox_targets, bbox_inside_weights) = sampleRois(all_rois, gts)
+    val (labels, rois, bbox_targets, bbox_inside_weights) = sampleRois(roisPlusGts, gts)
 
     labels.apply1(x => if (x == -1) -1 else x + 1f)
     if (output.length() == 0) {

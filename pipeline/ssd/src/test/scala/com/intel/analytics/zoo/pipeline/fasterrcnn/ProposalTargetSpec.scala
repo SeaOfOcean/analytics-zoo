@@ -3,6 +3,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn
 import breeze.linalg.{DenseMatrix, convert}
 import breeze.numerics._
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
+import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.VggParam
 import org.scalatest.FlatSpec
 
@@ -111,7 +112,7 @@ class ProposalTargetSpec extends FlatSpec {
       (2, 15, 7, 13, 6),
       (2, 12, 18, 0, 2))
 
-    val (r1, r2) = proposalTarget.getBboxRegressionLabels(Tensor(convert(data, Float)), 6)
+    val (r1, r2) = BboxUtil.getBboxRegressionLabels(Tensor(convert(data, Float)), 6)
 
     val expected1 = DenseMatrix(
       (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),

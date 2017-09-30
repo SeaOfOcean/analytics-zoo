@@ -35,11 +35,6 @@ abstract class FasterRcnnParam extends Serializable {
   // Minibatch size (number of regions of interest [ROIs])
   val BATCH_SIZE = 3
 
-  // Fraction of minibatch that is labeled foreground (i.e. class > 0)
-  val FG_FRACTION = 0.25
-
-  // Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
-  val FG_THRESH = 0.5f
 
   // Overlap threshold for a ROI to be considered background (class = 0 if
   // overlap in [LO, HI))
@@ -53,8 +48,6 @@ abstract class FasterRcnnParam extends Serializable {
   // Iterations between snapshots
   val SNAPSHOT_ITERS = 10000
 
-  // Deprecated (inside weights)
-  val BBOX_INSIDE_WEIGHTS = Tensor(Storage(Array(1.0f, 1.0f, 1.0f, 1.0f)))
   // Normalize the targets using "precomputed" (or made up) means and stdevs
   // (BBOX_NORMALIZE_TARGETS must also be true)
   var BBOX_NORMALIZE_TARGETS_PRECOMPUTED = true
