@@ -478,7 +478,7 @@ object BboxUtil {
     if (boxes.size(1) == 0) {
       return boxes
     }
-    val output = Tensor[Float]().resizeAs(deltas)
+    val output = Tensor[Float]().resizeAs(deltas).copy(deltas)
     require(boxes.size(2) == 4,
       s"boxes size ${ boxes.size().mkString(",") } do not satisfy N*4 size")
     require(output.size(2) % 4 == 0,
