@@ -18,7 +18,6 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.Model.ModelType
 
 
@@ -34,7 +33,10 @@ object Model extends Enumeration {
 }
 
 abstract class FasterRcnnParam extends Serializable {
-  val anchorParam: AnchorParam
+  val ratios: Array[Float]
+  val scales: Array[Float]
+
+  def anchorNum: Int = ratios.length * scales.length
 
   // Scales to use during training (can list multiple scales)
   // Each scale is the pixel size of an image"s shortest side

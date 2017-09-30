@@ -21,12 +21,12 @@ import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 
 /**
  * Generates a regular grid of multi-scale, multi-aspect anchor boxes.
- * @param param (anchor ratios, anchor scales)
  */
-class Anchor(param: AnchorParam) extends Serializable {
+class Anchor(ratios: Array[Float], scales: Array[Float]) extends Serializable {
 
-  private val basicAnchors: Tensor[Float] = generateBasicAnchors(param.ratios, param.scales)
+  private val basicAnchors: Tensor[Float] = generateBasicAnchors(ratios, scales)
 
+  val anchorNum = ratios.length * scales.length
   /**
    * first generate shiftX and shiftY over the whole feature map
    * then apply shifts for each basic anchors
@@ -118,8 +118,10 @@ class Anchor(param: AnchorParam) extends Serializable {
    * 1. generate anchors for different ratios (N, 4)
    * 2. for each anchors generated in 1, scale them to get scaled anchors (M*N, 4)
    */
-  private[fasterrcnn] def generateBasicAnchors(ratios: Tensor[Float], scales: Tensor[Float],
+  private[fasterrcnn] def generateBasicAnchors(_ratios: Array[Float], _scales: Array[Float],
     baseSize: Float = 16): Tensor[Float] = {
+    val ratios = Tensor(Storage(_ratios))
+    val scales = Tensor(Storage(_scales))
     val baseAnchor = Tensor(Storage(Array(0, 0, baseSize - 1, baseSize - 1)))
     val ratioAnchors = ratioEnum(baseAnchor, ratios)
     val anchors = Tensor(scales.size(1) * ratioAnchors.size(1), 4)
@@ -217,19 +219,19 @@ class Anchor(param: AnchorParam) extends Serializable {
 }
 
 object Anchor {
-  def apply(param: AnchorParam): Anchor = new Anchor(param)
+  def apply(ratios: Array[Float], scales: Array[Float]): Anchor = new Anchor(ratios, scales)
 }
 
-/**
- * anchor parameters
- * @param _ratios ratio = height / width
- * @param _scales scale of width and height
- */
-case class AnchorParam(_ratios: Array[Float], _scales: Array[Float]) {
-  val num: Int = _ratios.length * _scales.length
-  val ratios: Tensor[Float] = Tensor(Storage(_ratios))
-  val scales: Tensor[Float] = Tensor(Storage(_scales))
-}
+///**
+// * anchor parameters
+// * @param _ratios ratio = height / width
+// * @param _scales scale of width and height
+// */
+//case class AnchorParam(_ratios: Array[Float], _scales: Array[Float]) {
+//  val num: Int = _ratios.length * _scales.length
+//  val ratios: Tensor[Float] = Tensor(Storage(_ratios))
+//  val scales: Tensor[Float] = Tensor(Storage(_scales))
+//}
 
 
 

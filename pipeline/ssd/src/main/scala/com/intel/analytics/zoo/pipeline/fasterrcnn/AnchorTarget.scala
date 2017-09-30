@@ -69,10 +69,10 @@ class AnchorTarget(param: FasterRcnnParam)
   def getAnchors(featureW: Int, featureH: Int, imgW: Int, imgH: Int)
   : (Array[Int], Tensor[Float], Int) = {
     if (anchorTool == null) {
-      anchorTool = new Anchor(param.anchorParam)
+      anchorTool = new Anchor(param.scales, param.ratios)
     }
     // 1. Generate proposals from bbox deltas and shifted anchors
-    totalAnchors = featureH * featureW * param.anchorParam.num
+    totalAnchors = featureH * featureW * param.anchorNum
     logger.info(s"totalAnchors: $totalAnchors")
     val allAnchors = anchorTool.generateAnchors(featureW, featureH, 16)
     // keep only inside anchors
@@ -100,10 +100,10 @@ class AnchorTarget(param: FasterRcnnParam)
   def getAnchorTarget(featureH: Int, featureW: Int,
     imgH: Int, imgW: Int, gtBoxes: Tensor[Float], output: Table): Unit = {
     if (anchorTool == null) {
-      anchorTool = new Anchor(param.anchorParam)
+      anchorTool = new Anchor(param.ratios, param.scales)
     }
     require(gtBoxes.size(2) == 4)
-    val anchorNum = param.anchorParam.num
+    val anchorNum = param.anchorNum
     val (indsInside, insideAnchors, totalAnchors) = getAnchors(featureW, featureH, imgW, imgH)
 
     // overlaps between the anchors and the gt boxes

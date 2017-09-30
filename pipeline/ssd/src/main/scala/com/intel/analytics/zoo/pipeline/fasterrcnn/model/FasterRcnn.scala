@@ -21,7 +21,6 @@ import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.ModuleUtil
 import com.intel.analytics.zoo.pipeline.common.nn.Proposal
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 
 object FasterRcnn {
 
@@ -38,7 +37,7 @@ object FasterRcnn {
   }
 
 
-  def apply(nClass: Int, rpnPreNmsTopN: Int, rpnPostNmsTopN: Int, anchorParam: AnchorParam,
+  def apply(nClass: Int, rpnPreNmsTopN: Int, rpnPostNmsTopN: Int, anchorParam: FasterRcnnParam,
     rpn: Sequential[Float], fastRcnn: Sequential[Float]): Module[Float] = {
     val model = Sequential()
     val model1 = ParallelTable()
@@ -53,8 +52,8 @@ object FasterRcnn {
     left1.add(selectTensor(1, 1, 2))
     left1.add(selectTensor1(2))
     left.add(left1)
-    left.add(Proposal(preNmsTopN = rpnPreNmsTopN,
-      postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam))
+    left.add(Proposal(rpnPreNmsTopN,
+      rpnPostNmsTopN, anchorParam.ratios, anchorParam.scales))
 //    left.add(selectTensor1(1))
     // first add feature from feature net
     middle.add(selectTensor(1, 2))

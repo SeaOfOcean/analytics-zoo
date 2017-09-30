@@ -19,7 +19,6 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnn._
 
 object VggFRcnnSeq {
@@ -104,11 +103,12 @@ object VggFRcnnSeq {
 
 
   def apply(nClass: Int): Module[Float] = {
-    val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
+//    val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
+    val param = VggParam()
     val rpnPreNmsTopN = 6000
     val rpnPostNmsTopN = 300
     FasterRcnn(nClass, rpnPreNmsTopN,
-      rpnPostNmsTopN, anchorParam, baseAndRpn(anchorParam.num), fastRcnn())
+      rpnPostNmsTopN, param, baseAndRpn(param.anchorNum), fastRcnn())
   }
 }
 

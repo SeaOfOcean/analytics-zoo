@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl.nn.abstractnn.AbstractModule
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor, AnchorParam}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor}
 
 /**
  * Outputs object detection proposals by applying estimated bounding-box
@@ -30,10 +30,10 @@ import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor, AnchorParam}
  * scores: holds scores for R regions of interest
  *
  */
-class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
+class Proposal(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: Array[Float])
   extends AbstractModule[Table, Tensor[Float], Float] {
 
-  private val anchorUtil: Anchor = new Anchor(anchorParam)
+  private val anchorUtil: Anchor = Anchor(ratios, scales)
   @transient private var nms: Nms = _
   @transient private var bboxDeltas: Tensor[Float] = _
   @transient private var scores: Tensor[Float] = _
@@ -85,7 +85,7 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
 
     // select scores for object (while the remaining is the score for background)
     // transpose from (1, 2A, H, W) to (H * W * A)
-    val scoresOri = inputScore.narrow(2, anchorParam.num + 1, anchorParam.num)
+    val scoresOri = inputScore.narrow(2, anchorUtil.anchorNum + 1, anchorUtil.anchorNum)
     transposeAndReshape(scoresOri, 1, scores)
 
     val imInfo = input[Tensor[Float]](3)
@@ -201,7 +201,7 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam)
 }
 
 object Proposal {
-  def apply(preNmsTopN: Int, postNmsTopN: Int, anchorParam: AnchorParam): Proposal
-  = new Proposal(preNmsTopN, postNmsTopN, anchorParam)
+  def apply(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: Array[Float]): Proposal
+  = new Proposal(preNmsTopN, postNmsTopN, ratios, scales)
 }
 

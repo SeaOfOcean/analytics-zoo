@@ -66,4 +66,10 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     })
     status
   }
+
+  "save module" should "work" in {
+    val frcnnGraph = VggFRcnn(21,
+      PostProcessParam(0.3f, 21, false, -1, 0))
+    frcnnGraph.saveModule("/tmp/frcnn.model", true)
+  }
 }

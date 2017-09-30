@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.nn.Proposal
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorParam, AnchorTarget, Postprocessor, ProposalTarget, RoiPooling => RoiPoolingFrcnn}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorTarget, Postprocessor, ProposalTarget, RoiPooling => RoiPoolingFrcnn}
 import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
 object VggFRcnn {
 
@@ -64,11 +64,12 @@ object VggFRcnn {
   }
 
 
-  val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
+//  val anchorParam = AnchorParam(_scales = Array(8f, 16f, 32f), _ratios = Array(0.5f, 1.0f, 2.0f))
   val rpnPreNmsTopN = 6000
   val rpnPostNmsTopN = 300
 
-  def apply(nClass: Int, param: PostProcessParam): Module[Float] = {
+  def apply(nClass: Int, postProcessParam: PostProcessParam): Module[Float] = {
+    val param = VggParam()
     val data = Input()
     val imInfo = Input()
     // for training only
@@ -82,12 +83,12 @@ object VggFRcnn {
       .setName("rpn_cls_score").inputs(relu3x3)
     val rpn_cls_score_reshape = InferReshape(Array(0, 2, -1, 0)).inputs(rpn_cls_score)
     val rpn_cls_prob = SoftMax().setName("rpn_cls_prob").inputs(rpn_cls_score_reshape)
-    val rpn_cls_prob_reshape = InferReshape(Array(1, 2 * anchorParam.num, -1, 0))
+    val rpn_cls_prob_reshape = InferReshape(Array(1, 2 * param.anchorNum, -1, 0))
       .setName("rpn_cls_prob_reshape").inputs(rpn_cls_prob)
     val rpn_bbox_pred = SpatialConvolution(512, 36, 1, 1, 1, 1).setName("rpn_bbox_pred")
       .inputs(relu3x3)
     val proposal = Proposal(preNmsTopN = rpnPreNmsTopN,
-      postNmsTopN = rpnPostNmsTopN, anchorParam = anchorParam).setName("proposal")
+      postNmsTopN = rpnPostNmsTopN, param.ratios, param.scales).setName("proposal")
       .inputs(rpn_cls_prob_reshape, rpn_bbox_pred, imInfo)
 
 
@@ -112,7 +113,7 @@ object VggFRcnn {
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
       .inputs(rpn_cls_score, gt, imInfo, data)
 
-    val detectionOut = Postprocessor(param).inputs(cls_prob, bbox_pred, roi_data,
+    val detectionOut = Postprocessor(postProcessParam).inputs(cls_prob, bbox_pred, roi_data,
       rpn_cls_score_reshape, rpn_bbox_pred, rpn_data, imInfo)
     val model = Graph(Array(data, imInfo, gt), detectionOut)
     model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "relu2_2"))

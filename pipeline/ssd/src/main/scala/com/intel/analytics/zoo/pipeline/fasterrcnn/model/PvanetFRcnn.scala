@@ -19,9 +19,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnn._
-import com.intel.analytics.bigdl.tensor.Tensor
 
 
 object PvanetFRcnn {
@@ -264,13 +262,14 @@ object PvanetFRcnn {
 
 
   def apply(nClass: Int, postProcessParam: PostProcessParam): Module[Float] = {
-    val anchorParam = AnchorParam(_scales = Array[Float](3, 6, 9, 16, 32),
-      _ratios = Array(0.5f, 0.667f, 1.0f, 1.5f, 2.0f))
+//    val anchorParam = AnchorParam(_scales = Array[Float](3, 6, 9, 16, 32),
+//      _ratios = Array(0.5f, 0.667f, 1.0f, 1.5f, 2.0f))
+    val param = new PvanetParam()
     // Number of top scoring boxes to keep before apply NMS to RPN proposals
     val rpnPreNmsTopN = 12000
     // Number of top scoring boxes to keep after applying NMS to RPN proposals
     val rpnPostNmsTopN = 200
-    FasterRcnn(nClass, rpnPreNmsTopN, rpnPostNmsTopN, anchorParam,
-      baseAndRpn(anchorParam.num), fastRcnn())
+    FasterRcnn(nClass, rpnPreNmsTopN, rpnPostNmsTopN, param,
+      baseAndRpn(param.anchorNum), fastRcnn())
   }
 }

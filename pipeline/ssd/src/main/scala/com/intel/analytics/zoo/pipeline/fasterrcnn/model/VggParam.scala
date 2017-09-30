@@ -17,12 +17,13 @@
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.Model.ModelType
 
 case class VggParam() extends FasterRcnnParam {
-  val anchorParam = AnchorParam(_scales = Array[Float](8, 16, 32),
-    _ratios = Array[Float](0.5f, 1.0f, 2.0f))
+//  val anchorParam = AnchorParam(_scales = Array[Float](8, 16, 32),
+//    _ratios = Array[Float](0.5f, 1.0f, 2.0f))
+  val ratios = Array[Float](0.5f, 1.0f, 2.0f)
+  val scales = Array[Float](8, 16, 32)
   override val BG_THRESH_LO = 0.0
   override val BATCH_SIZE = 128
   override val modelType: ModelType = Model.VGG16

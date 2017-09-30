@@ -17,11 +17,10 @@
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorParam
 
 class PvanetParam() extends FasterRcnnParam() {
-  val anchorParam = AnchorParam(_scales = Array[Float](3, 6, 9, 16, 32),
-    _ratios = Array(0.5f, 0.667f, 1.0f, 1.5f, 2.0f))
+  val ratios = Array(0.5f, 0.667f, 1.0f, 1.5f, 2.0f)
+  val scales = Array[Float](3, 6, 9, 16, 32)
 
   override val SCALE_MULTIPLE_OF = 32
   SCALES = Array(416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800, 832, 864)
