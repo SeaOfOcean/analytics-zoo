@@ -131,6 +131,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // labels for rois
     var labels = Tensor[Float](gtIndices.nElement())
     (1 to gtIndices.nElement()).foreach(i => {
+      println("proposal target " + i, gts.size().mkString("x"), FrcnnMiniBatch.labelIndex)
       labels.setValue(i, gts.valueAt(i, FrcnnMiniBatch.labelIndex))
     })
 
