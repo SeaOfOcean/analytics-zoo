@@ -196,7 +196,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // targets
     val (labels, rois, bbox_targets, bboxInsideWeights) = sampleRois(roisPlusGts, gts)
 
-    labels.apply1(x => if (x == -1) -1 else x + 1f)
+//    labels.apply1(x => if (x == -1) -1 else x + 1f)
     if (output.length() == 0) {
       // bbox_targets (1, numClasses * 4) + bbox_inside_weights (1, numClasses * 4)
       // + bbox_outside_weights (1, numClasses * 4)
