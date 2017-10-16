@@ -384,4 +384,30 @@ class BboxUtilSpec extends FlatSpec with Matchers {
 
     res should be(res2)
   }
+
+  "apply1" should "work" in {
+    def a1(bboxInsideWeights: Tensor[Float]): Tensor[Float] = {
+      for (r <- 1 to bboxInsideWeights.size(1)) {
+        for (c <- 1 to bboxInsideWeights.size(2)) {
+          if (bboxInsideWeights.valueAt(r, c) > 0) {
+            bboxInsideWeights.setValue(r, c, 1f)
+          } else {
+            bboxInsideWeights.setValue(r, c, 0f)
+          }
+        }
+      }
+      bboxInsideWeights
+    }
+    def a2(bboxInsideWeights: Tensor[Float]): Tensor[Float] = {
+      bboxInsideWeights.apply1(x => {
+        if (x > 0) 1f else 0f
+      })
+    }
+    val tensor = Tensor[Float](30, 40).rand(-1, 1)
+    val tensor2 = tensor.clone()
+
+    val out1 = a1(tensor)
+    val out2 = a2(tensor2)
+    out1 should be (out2)
+  }
 }

@@ -42,7 +42,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Table, Float] {
 
   //  val labelTarget = T()
-  val target = T()
+//  val target = T()
 //  @transient var bboxTool: Bbox = new Bbox
 
   /**
@@ -194,22 +194,25 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
     // Sample rois with classification labels and bounding box regression
     // targets
-    val (labels, rois, bbox_targets, bbox_inside_weights) = sampleRois(roisPlusGts, gts)
+    val (labels, rois, bbox_targets, bboxInsideWeights) = sampleRois(roisPlusGts, gts)
 
     labels.apply1(x => if (x == -1) -1 else x + 1f)
     if (output.length() == 0) {
       // bbox_targets (1, numClasses * 4) + bbox_inside_weights (1, numClasses * 4)
       // + bbox_outside_weights (1, numClasses * 4)
 
-      for (r <- 1 to bbox_inside_weights.size(1)) {
-        for (c <- 1 to bbox_inside_weights.size(2)) {
-          if (bbox_inside_weights.valueAt(r, c) > 0) {
-            bbox_inside_weights.setValue(r, c, 1f)
-          } else {
-            bbox_inside_weights.setValue(r, c, 0f)
-          }
-        }
-      }
+//      for (r <- 1 to bboxInsideWeights.size(1)) {
+//        for (c <- 1 to bboxInsideWeights.size(2)) {
+//          if (bboxInsideWeights.valueAt(r, c) > 0) {
+//            bboxInsideWeights.setValue(r, c, 1f)
+//          } else {
+//            bboxInsideWeights.setValue(r, c, 0f)
+//          }
+//        }
+//      }
+      bboxInsideWeights.apply1(x => {
+        if (x > 0) 1f else 0f
+      })
     }
 
     // sampled rois (0, x1, y1, x2, y2) (1,5)
@@ -218,19 +221,19 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // labels (1,1)
     output.insert(2, labels)
     output.insert(3, bbox_targets)
-    output.insert(4, bbox_inside_weights)
-    output.insert(5, bbox_inside_weights)
+    output.insert(4, bboxInsideWeights)
+    output.insert(5, bboxInsideWeights)
     output
   }
 
 
-  def matrix2Table(mat1: Tensor[Float], mat2: Tensor[Float],
-    mat3: Tensor[Float]): Table = {
-    target.insert(1, mat1)
-    target.insert(2, mat2)
-    target.insert(3, mat3)
-    target
-  }
+//  def matrix2Table(mat1: Tensor[Float], mat2: Tensor[Float],
+//    mat3: Tensor[Float]): Table = {
+//    target.insert(1, mat1)
+//    target.insert(2, mat2)
+//    target.insert(3, mat3)
+//    target
+//  }
 
   override def updateGradInput(input: Table, gradOutput: Table): Table = {
     gradInput = null
