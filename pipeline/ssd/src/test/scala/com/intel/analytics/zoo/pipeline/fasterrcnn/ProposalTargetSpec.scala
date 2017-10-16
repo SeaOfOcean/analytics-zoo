@@ -3,6 +3,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn
 import breeze.linalg.{DenseMatrix, convert}
 import breeze.numerics._
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
+import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.VggParam
 import org.scalatest.FlatSpec

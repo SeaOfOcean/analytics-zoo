@@ -120,6 +120,9 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // overlaps: (rois x gt_boxes)
     val overlaps = BboxUtil.bboxOverlap(roisPlusGts.narrow(2, 2, 4), FrcnnMiniBatch.getBboxes(gts))
 
+//    val overlaps2 = BboxUtil.bboxOverlap(BboxUtil.selectMatrix(roisPlusGts, Array.range(2, 6), 2),
+//      BboxUtil.selectMatrix(gts, Array.range(4, 8), 2))
+
     // for each roi, get the gt with max overlap with it
     val (maxOverlaps, gtIndices) = overlaps.max(2)
     // todo: the last few overlap should be 1, they are gt overlap gt
@@ -131,9 +134,15 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // labels for rois
     var labels = Tensor[Float](gtIndices.nElement())
     (1 to gtIndices.nElement()).foreach(i => {
-      println("proposal target " + i, gts.size().mkString("x"), FrcnnMiniBatch.labelIndex)
-      labels.setValue(i, gts.valueAt(i, FrcnnMiniBatch.labelIndex))
+//      println("proposal target " + i, gts.size().mkString("x"), FrcnnMiniBatch.labelIndex,
+//        gtIndices.size().mkString("x"))
+      labels.setValue(i, gts.valueAt(gtIndices.valueAt(i, 1).toInt, FrcnnMiniBatch.labelIndex))
     })
+
+//    // todo: optimize this
+//    var labels2 = BboxUtil.selectMatrix2(gts, gtIndices.storage().array()
+//      .map(x => x.toInt),
+//      Array(FrcnnMiniBatch.labelIndex)).squeeze().clone()
 
 
     // from max overlaps, select foreground and background
@@ -153,12 +162,12 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
     val sampledRois = BboxUtil.selectMatrix(roisPlusGts, keepInds, 1)
     val keepInds2 = keepInds.map(x => gtIndices.valueAt(x, 1).toInt)
+
     val bboxTargetData = computeTargets(
       sampledRois.narrow(2, 2, 4),
       BboxUtil.selectMatrix(gts, keepInds2, 1)
-        .narrow(2, FrcnnMiniBatch.x1Index, FrcnnMiniBatch.y2Index),
+        .narrow(2, FrcnnMiniBatch.x1Index, 4),
       labels)
-
 
     val (bboxTarget, bboxInsideWeights) =
       BboxUtil.getBboxRegressionLabels(bboxTargetData, numClasses)
@@ -180,6 +189,8 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
     // Include ground-truth boxes in the set of candidate rois
     val roisPlusGts = BboxUtil.vertcat2D(proposalRois, gts.narrow(2, 3, 5))
+    // in case gts has difficult (1)
+    roisPlusGts.select(2, 1).fill(0)
 
     // Sample rois with classification labels and bounding box regression
     // targets
@@ -203,6 +214,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
     // sampled rois (0, x1, y1, x2, y2) (1,5)
     output.insert(1, rois)
+//    println(rois)
     // labels (1,1)
     output.insert(2, labels)
     output.insert(3, bbox_targets)

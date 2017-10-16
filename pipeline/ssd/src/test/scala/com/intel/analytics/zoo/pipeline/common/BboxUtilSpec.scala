@@ -369,14 +369,15 @@ class BboxUtilSpec extends FlatSpec with Matchers {
           bbox_inside_weights.setValue(ind + 1, x + start.toInt - 1,
             BBOX_INSIDE_WEIGHTS.valueAt(x - 1))
         })
+        println()
       })
       (bbox_targets, bbox_inside_weights)
     }
 
-    val input = Tensor[Float](10, 5).randn()
+    val input = Tensor[Float](200, 5).randn()
 
     // Deprecated (inside weights)
-    val BBOX_INSIDE_WEIGHTS = Tensor(Storage(Array(1.0f, 1.0f, 1.0f, 1.0f)))
+//    val BBOX_INSIDE_WEIGHTS = Tensor(Storage(Array(1.0f, 1.0f, 1.0f, 1.0f)))
     (1 to 10).foreach(i => input.setValue(i, 1, i - 1))
     val res = getBboxRegressionLabels(input, 21)
     val res2 = BboxUtil.getBboxRegressionLabels(input, 21)

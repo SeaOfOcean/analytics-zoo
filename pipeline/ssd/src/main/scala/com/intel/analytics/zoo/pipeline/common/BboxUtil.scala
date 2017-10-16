@@ -111,9 +111,9 @@ object BboxUtil {
     (0 until bboxTargetData.size(1)).foreach(ind => {
       val cls = bboxTargetData.valueAt(ind + 1, 1)
       if (cls > 0) {
-        val start = 4 * cls.toInt
+        val start = (4 * cls).toInt
+
         (2 to bboxTargetData.size(2)).foreach(x => {
-          logger.warn(bboxTargets.size().mkString("x"), ind + 1, x + start - 1)
           bboxTargets.setValue(ind + 1, x + start - 1, bboxTargetData.valueAt(ind + 1, x))
           bboxInsideWeights.setValue(ind + 1, x + start - 1,
             BBOX_INSIDE_WEIGHTS.valueAt(x - 1))
