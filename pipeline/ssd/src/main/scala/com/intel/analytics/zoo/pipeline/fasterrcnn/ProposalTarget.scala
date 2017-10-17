@@ -30,6 +30,7 @@ import scala.util.Random
 
 object ProposalTarget {
   val logger = Logger.getLogger(getClass)
+
   def apply(param: FasterRcnnParam, numClasses: Int)
     (implicit ev: TensorNumeric[Float]): ProposalTarget = new ProposalTarget(param, numClasses)
 }
@@ -66,8 +67,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   }
 
 
-
-
   // Fraction of minibatch that is labeled foreground (i.e. class > 0)
   val FG_FRACTION = 0.25
   val rois_per_image = param.BATCH_SIZE
@@ -78,6 +77,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
   // Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
   val FG_THRESH = 0.5f
+
   private def selectForeGroundRois(maxOverlaps: Tensor[Float]): Array[Int] = {
     // Select foreground RoIs as those with >= FG_THRESH overlap
     var fgInds = maxOverlaps.storage().array().zip(Stream from 1)
@@ -110,6 +110,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
   /**
    * Generate a random sample of RoIs comprising foreground and background examples.
+   *
    * @param roisPlusGts (0, x1, y1, x2, y2)
    * @param gts GT boxes (index, label, difficult, x1, y1, x2, y2)
    * @return
@@ -120,45 +121,30 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // overlaps: (rois x gt_boxes)
     val overlaps = BboxUtil.bboxOverlap(roisPlusGts.narrow(2, 2, 4), FrcnnMiniBatch.getBboxes(gts))
 
-//    val overlaps2 = BboxUtil.bboxOverlap(BboxUtil.selectMatrix(roisPlusGts, Array.range(2, 6), 2),
-//      BboxUtil.selectMatrix(gts, Array.range(4, 8), 2))
-
     // for each roi, get the gt with max overlap with it
     val (maxOverlaps, gtIndices) = overlaps.max(2)
     // todo: the last few overlap should be 1, they are gt overlap gt
 
-//    var labels = BboxUtil.selectMatrix2(gts, gtIndices.storage().array()
-//      .map(x => x.toInt),
-//      Array(FrcnnMiniBatch.labelIndex)).squeeze().clone()
-
     // labels for rois
     var labels = Tensor[Float](gtIndices.nElement())
     (1 to gtIndices.nElement()).foreach(i => {
-//      println("proposal target " + i, gts.size().mkString("x"), FrcnnMiniBatch.labelIndex,
-//        gtIndices.size().mkString("x"))
-      labels.setValue(i, gts.valueAt(gtIndices.valueAt(i, 1).toInt, FrcnnMiniBatch.labelIndex))
+      val cls = gts.valueAt(gtIndices.valueAt(i, 1).toInt, FrcnnMiniBatch.labelIndex)
+      require(cls >= 1 && cls <= numClasses, s"$cls is not in range [1, $numClasses]")
+      labels.setValue(i, cls)
     })
 
-//    // todo: optimize this
-//    var labels2 = BboxUtil.selectMatrix2(gts, gtIndices.storage().array()
-//      .map(x => x.toInt),
-//      Array(FrcnnMiniBatch.labelIndex)).squeeze().clone()
 
 
     // from max overlaps, select foreground and background
     val fgInds = selectForeGroundRois(maxOverlaps)
     val bg_inds = selectBackgroundRois(maxOverlaps)
-    // for test usage
-    // fg_inds = FileUtil.loadFeatures("fg_inds_choice").storage().array().map(x => x.toInt + 1)
-    // bg_inds = FileUtil.loadFeatures("bg_inds_choice").storage().array().map(x => x.toInt + 1)
-
     // The indices that we're selecting (both fg and bg)
     val keepInds = fgInds ++ bg_inds
 
     // Select sampled values from various arrays:
     labels = BboxUtil.selectMatrix(labels, keepInds, 1)
-    // Clamp labels for the background RoIs to 0
-    (fgRoisPerThisImage + 1 to labels.nElement()).foreach(i => labels(i) = 0)
+    // Clamp labels for the background RoIs to 1 (1-based)
+    (fgRoisPerThisImage + 1 to labels.nElement()).foreach(i => labels(i) = 1)
 
     val sampledRois = BboxUtil.selectMatrix(roisPlusGts, keepInds, 1)
     val keepInds2 = keepInds.map(x => gtIndices.valueAt(x, 1).toInt)
@@ -200,16 +186,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     if (output.length() == 0) {
       // bbox_targets (1, numClasses * 4) + bbox_inside_weights (1, numClasses * 4)
       // + bbox_outside_weights (1, numClasses * 4)
-
-//      for (r <- 1 to bboxInsideWeights.size(1)) {
-//        for (c <- 1 to bboxInsideWeights.size(2)) {
-//          if (bboxInsideWeights.valueAt(r, c) > 0) {
-//            bboxInsideWeights.setValue(r, c, 1f)
-//          } else {
-//            bboxInsideWeights.setValue(r, c, 0f)
-//          }
-//        }
-//      }
       bboxInsideWeights.apply1(x => {
         if (x > 0) 1f else 0f
       })
@@ -217,7 +193,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
 
     // sampled rois (0, x1, y1, x2, y2) (1,5)
     output.insert(1, rois)
-//    println(rois)
     // labels (1,1)
     output.insert(2, labels)
     output.insert(3, bbox_targets)
@@ -225,15 +200,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     output.insert(5, bboxInsideWeights)
     output
   }
-
-
-//  def matrix2Table(mat1: Tensor[Float], mat2: Tensor[Float],
-//    mat3: Tensor[Float]): Table = {
-//    target.insert(1, mat1)
-//    target.insert(2, mat2)
-//    target.insert(3, mat3)
-//    target
-//  }
 
   override def updateGradInput(input: Table, gradOutput: Table): Table = {
     gradInput = null
