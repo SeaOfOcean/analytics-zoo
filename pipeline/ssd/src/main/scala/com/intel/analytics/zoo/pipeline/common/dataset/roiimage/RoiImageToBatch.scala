@@ -70,7 +70,6 @@ class RoiImageToBatch(totalBatch: Int,
             val feature = prev.next()
             height = feature.getHeight()
             width = feature.getWidth()
-            println(height, width)
             if (featureData == null) {
               featureData = new Array[Float](batchSize * 3 * height * width)
               imInfoData = new Array[Float](batchSize * 4)
