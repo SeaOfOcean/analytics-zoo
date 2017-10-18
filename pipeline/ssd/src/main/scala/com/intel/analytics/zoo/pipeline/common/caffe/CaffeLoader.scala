@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import pipeline.caffe.Caffe
 import pipeline.caffe.Caffe._
+import pipeline.caffe.Caffe.LayerParameter
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -348,6 +349,13 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
           }
         })
     }
+
+    val inputs = layerConverter.convertDataFromCaffe(netparam)
+    inputs.foreach(input => {
+      top2LayerMap(input.element.getName()) = input.element.getName()
+      layersMap(input.element.getName()) = input
+      layers.append(input)
+    })
     allLayers.foreach(layer => {
       var name: String = null
       val topList = new ArrayBuffer[String]()
@@ -417,6 +425,16 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
     })
     return layers
   }
+
+//  private def convertCaffeLayer(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
+//    val node = if (layer.isInstanceOf[LayerParameter]) {
+//      layerConverter.convertLayerFromCaffe(layer)
+//    }
+//    else {
+//      v1layerConverter.convertLayerFromCaffe(layer)
+//    }
+//    node
+//  }
 
   private def convertCaffeLayer(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
     val node = if (layer.isInstanceOf[LayerParameter]) {
@@ -520,7 +538,7 @@ object CaffeLoader {
   }
 }
 
-object SSDCaffeLoader {
+object PipelineCaffeLoader {
 
   val customized = new mutable.HashMap[String, Customizable[Float]]()
   customized.put("PRIORBOX", new PriorBoxConvertor[Float]())

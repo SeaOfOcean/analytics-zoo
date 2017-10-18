@@ -19,11 +19,12 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn
 import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
+import com.intel.analytics.bigdl.nn.Sequential
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.ValidationMethod
 import com.intel.analytics.zoo.pipeline.common.ModuleUtil
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.{RecordToFeature, SSDByteRecord}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PreProcessParam
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
 import com.intel.analytics.zoo.transform.vision.image.augmentation.RandomResize
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats}
 import org.apache.log4j.Logger
@@ -32,6 +33,7 @@ import org.apache.spark.rdd.RDD
 
 class Validator(model: Module[Float],
   preProcessParam: PreProcessParam,
+  postPrecessParam: PostProcessParam,
   evaluator: ValidationMethod[Float]) {
   val preProcessor = RecordToFeature(true) ->
     BytesToMat() ->
@@ -39,11 +41,14 @@ class Validator(model: Module[Float],
     MatToFloats(validHeight = 100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
     FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
+  val postprocessor = Postprocessor(postPrecessParam)
+
 
   ModuleUtil.shareMemory(model)
+  val modelWithPostprocess = Sequential().add(model).add(postprocessor)
 
   def test(rdd: RDD[SSDByteRecord]): Unit = {
-    Validator.test(rdd, model, preProcessor, evaluator)
+    Validator.test(rdd, modelWithPostprocess, preProcessor, evaluator)
   }
 }
 

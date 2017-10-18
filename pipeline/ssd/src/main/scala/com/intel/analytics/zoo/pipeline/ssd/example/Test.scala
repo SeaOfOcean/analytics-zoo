@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl.nn.Module
 import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
 import com.intel.analytics.zoo.pipeline.ssd._
 import com.intel.analytics.bigdl.utils.Engine
-import com.intel.analytics.zoo.pipeline.common.caffe.SSDCaffeLoader
+import com.intel.analytics.zoo.pipeline.common.caffe.PipelineCaffeLoader
 import com.intel.analytics.zoo.pipeline.ssd.model.PreProcessParam
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
@@ -103,7 +103,7 @@ object Test {
         Module.load[Float](params.model.get)
       } else if (params.caffeDefPath.isDefined && params.caffeModelPath.isDefined) {
         // load caffe dynamically
-        SSDCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
+        PipelineCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
       } else {
         throw new IllegalArgumentException(
           s"currently only support loading BigDL model or caffe model")

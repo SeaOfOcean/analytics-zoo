@@ -16,10 +16,11 @@
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.example
 
-import com.intel.analytics.bigdl.nn.Module
+import com.intel.analytics.bigdl.nn.{Graph, Module}
 import com.intel.analytics.bigdl.utils.Engine
+import com.intel.analytics.zoo.pipeline.common.caffe.PipelineCaffeLoader
 import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.Validator
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{Postprocessor, Validator}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, PvanetFRcnn, VggFRcnn}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
@@ -87,22 +88,30 @@ object Test {
       val evaluator = new MeanAveragePrecision(true, normalized = false,
         nClass = params.nClass)
       val rdd = IOUtils.loadSeqFiles(params.nPartition, params.folder, sc)
-      val (model, preParam) = params.modelType.toLowerCase() match {
+
+      val model = PipelineCaffeLoader.loadCaffe(params.caffeDefPath, params.caffeModelPath)
+      val (preParam, postParam) = params.modelType.toLowerCase() match {
         case "vgg16" =>
-          (Module.loadCaffe(VggFRcnn(params.nClass,
-            PostProcessParam(0.3f, params.nClass, false, 100, 0.05)),
-            params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(params.batch, nPartition = params.nPartition))
+          val postParam = PostProcessParam(0.3f, params.nClass, false, 100, 0.05)
+          val preParam = PreProcessParam(params.batch, nPartition = params.nPartition)
+          (preParam, postParam)
+//          (Module.loadCaffe(VggFRcnn(params.nClass,
+//            PostProcessParam(0.3f, params.nClass, false, 100, 0.05)),
+//            params.caffeDefPath, params.caffeModelPath),
+//            PreProcessParam(params.batch, nPartition = params.nPartition))
         case "pvanet" =>
-          (Module.loadCaffe(PvanetFRcnn(params.nClass,
-            PostProcessParam(0.4f, params.nClass, true, 100, 0.05)),
-            params.caffeDefPath, params.caffeModelPath),
-            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition))
+          val postParam = PostProcessParam(0.4f, params.nClass, true, 100, 0.05)
+          val preParam = PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition)
+          (preParam, postParam)
+//          (Module.loadCaffe(PvanetFRcnn(params.nClass,
+//            PostProcessParam(0.4f, params.nClass, true, 100, 0.05)),
+//            params.caffeDefPath, params.caffeModelPath),
+//            PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition))
         case _ =>
           throw new Exception("unsupport network")
       }
 
-      val validator = new Validator(model, preParam, evaluator)
+      val validator = new Validator(model, preParam, postParam, evaluator)
 
       validator.test(rdd._1)
     }

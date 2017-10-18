@@ -16,7 +16,7 @@
 package com.intel.analytics.zoo.pipeline.common
 
 import com.intel.analytics.bigdl.nn.Module
-import com.intel.analytics.zoo.pipeline.common.caffe.{SSDCaffeLoader}
+import com.intel.analytics.zoo.pipeline.common.caffe.{PipelineCaffeLoader}
 import scopt.OptionParser
 
 object WeightConverter {
@@ -71,7 +71,7 @@ object CaffeConverter {
 
   def main(args: Array[String]) {
     parser.parse(args, CaffeConverterParam()).foreach { params =>
-      val model = SSDCaffeLoader.loadCaffe(params.caffeDefPath, params.caffeModelPath)
+      val model = PipelineCaffeLoader.loadCaffe(params.caffeDefPath, params.caffeModelPath)
       model.saveModule(params.bigDLModel, overWrite = true)
     }
   }

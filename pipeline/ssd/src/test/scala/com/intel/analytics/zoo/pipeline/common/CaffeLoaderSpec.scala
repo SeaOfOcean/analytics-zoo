@@ -18,12 +18,14 @@ package com.intel.analytics.zoo.pipeline.common
 
 import java.io.File
 
-import com.intel.analytics.bigdl.nn.Utils
-import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, SSDCaffeLoader}
+import com.intel.analytics.bigdl.nn.{Graph, Utils}
+import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, PipelineCaffeLoader}
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import com.intel.analytics.zoo.pipeline.ssd.model.{SSDAlexNet, SSDVgg}
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
+import org.apache.spark.SparkContext
 import org.scalatest.{FlatSpec, Matchers}
 
 class CaffeLoaderSpec extends FlatSpec with Matchers {
@@ -36,7 +38,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
       cancel("local test")
     }
 
-    val ssdcaffe = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val ssdcaffe = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     val model = SSDVgg(21, 300)
     CaffeLoader.load(model, prototxt, caffemodel)
@@ -94,7 +96,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    val ssdcaffe = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val ssdcaffe = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
     val model = SSDVgg(21, 512)
     CaffeLoader.load(model, prototxt, caffemodel, true)
 
@@ -136,7 +138,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    val ssdcaffe = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val ssdcaffe = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     ModuleUtil.shareMemory(ssdcaffe)
     val model = SSDAlexNet(2, 300)
@@ -172,7 +174,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    val model = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     ModuleUtil.shareMemory(model)
     model.evaluate()
@@ -190,7 +192,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     }
     TestUtil.middleRoot = "$home/data/deepbit"
     val input = TestUtil.loadFeaturesFullPath("$home/data/deepbit/data-2_3_224_224.txt")
-    val model = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     ModuleUtil.shareMemory(model)
     model.evaluate()
@@ -210,7 +212,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     TestUtil.middleRoot = "$home/data/deepbit/1.0"
     val input = TestUtil.loadFeatures("data")
 //    val input = Tensor[Float](1, 3, 227, 227)
-    val model = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     ModuleUtil.shareMemory(model)
     model.evaluate()
@@ -221,22 +223,36 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "fasterrcnn vgg load with caffe" should "work properly" in {
+
+    val conf = Engine.createSparkConf().setMaster("local[2]")
+      .setAppName("Spark-DL Faster RCNN Test")
+    val sc = new SparkContext(conf)
+    Engine.init
     val prototxt = s"$home/data/caffeModels/vgg16/test.prototxt"
     val caffemodel = s"$home/data/caffeModels/vgg16/test.caffemodel"
 
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
+      .asInstanceOf[Graph[Float]]
+    model.saveGraphTopology("/tmp/summary")
   }
 
   "pvanet load"  should "work properly" in {
+
+    val conf = Engine.createSparkConf().setMaster("local[2]")
+      .setAppName("Spark-DL Faster RCNN Test")
+    val sc = new SparkContext(conf)
+    Engine.init
     val prototxt = s"$home/data/caffeModels/pvanet/faster_rcnn_train_test_21cls.pt"
     val caffemodel = s"$home/data/caffeModels/pvanet/PVA9.1_ImgNet_COCO_VOC0712.caffemodel"
 
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
+      .asInstanceOf[Graph[Float]]
+    model.saveGraphTopology("/tmp/summary")
   }
 }

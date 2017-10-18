@@ -25,10 +25,12 @@ import com.intel.analytics.bigdl.pipeline.common.nn.CaffeSpatialAveragePooling
 import com.intel.analytics.zoo.pipeline.common.nn.SpatialWithinChannelLRN
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
+import pipeline.caffe.Caffe
 import pipeline.caffe.Caffe.EltwiseParameter.EltwiseOp
 import pipeline.caffe.Caffe.LRNParameter.NormRegion
 import pipeline.caffe.Caffe.PoolingParameter.PoolMethod
 import pipeline.caffe.Caffe._
+import pipeline.caffe.Caffe.LayerParameter
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -79,6 +81,55 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
       tryCustomizedConverter(layerType, layer)
     }
   }
+
+  protected def fromCaffeInput(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
+    val layerName = getLayerName(layer)
+    println(layerName)
+    val input = Input()
+    input.element.setName(layerName)
+    Seq(input)
+  }
+
+  def convertDataFromCaffe(netparam: Caffe.NetParameter): Seq[ModuleNode[T]] = {
+    val inputs = netparam.getInputList
+    (0 until inputs.size()).map(i => {
+      val input = Input()
+      input.element.setName(inputs.get(i))
+      input
+    })
+  }
+//    val layerType = getLayerType(layer).toUpperCase
+//    if (layerType.endsWith("DATA") || layerType == "INPUT") {
+      //      var transformer: Transformer[Data, Data] =
+//        if (modelType.toUpperCase().contains("GOOGLENET") ||
+//          modelType.toUpperCase().contains("RESNET")) {
+//          // for googlenet resnet, first resize to 256x256
+//          CVResizer(256)
+//        } else {
+//          IdentityTransformer()
+//        }
+//var transformer: Transformer[Data, Data] = IdentityTransformer()
+//      val param = layer.asInstanceOf[LayerParameter].getTransformParam
+//      var valid = 300
+//      if (param.hasCropSize) {
+//        transformer = transformer -> CenterCrop(param.getCropSize, param.getCropSize)
+//        valid = param.getCropSize
+//      }
+//      if (param.hasResizeParam) {
+//        // equal resize
+//        transformer = transformer -> CVResizer(param.getResizeParam.getWidth)
+//        valid = param.getResizeParam.getWidth
+//      }
+//
+//      val meansRGB = if (param.getMeanValueList.size() > 0) {
+//        Some(param.getMeanValueList.get(2).toInt, param.getMeanValueList.get(1).toInt,
+//          param.getMeanValueList.get(0).toInt)
+//      } else None
+//      transformer -> MatToFloats(validHeight = valid, validWidth = valid, meanRGB = meansRGB)
+//    } else {
+//      null
+//    }
+//  }
 
   protected def fromCaffeReLU(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
     val layerName = getLayerName(layer)
@@ -619,10 +670,10 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
     caffe2BigDL("NORMALIZE") = fromCaffeNormalize
     caffe2BigDL("PERMUTE") = fromCaffePermute
     caffe2BigDL("DETECTIONOUTPUT") = fromCaffeDetectionOutput
-    caffe2BigDL("INPUT") = null
-    caffe2BigDL("DATA") = null
-    caffe2BigDL("DUMMYDATA") = null
-    caffe2BigDL("ANNOTATEDDATA") = null
+    caffe2BigDL("INPUT") = fromCaffeInput
+    caffe2BigDL("DATA") = fromCaffeInput
+    caffe2BigDL("DUMMYDATA") = fromCaffeInput
+    caffe2BigDL("ANNOTATEDDATA") = fromCaffeInput
     caffe2BigDL("DETECTIONEVALUATE") = null
     caffe2BigDL("MULTIBOXLOSS") = null
     caffe2BigDL("SMOOTHL1LOSS") = null

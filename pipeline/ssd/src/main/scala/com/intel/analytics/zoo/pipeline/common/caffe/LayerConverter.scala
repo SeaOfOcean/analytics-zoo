@@ -109,9 +109,9 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
     val node = linear.inputs()
     if (nInputPlane != nOutputPlane) {
       // Construct a view layer in between
-      val view = View[T](nInputPlane).inputs()
-      view -> node
-      Seq(view, node)
+      val view = View[T](nInputPlane)
+      val linearWithView = Sequential().add(view).add(linear)
+      Seq(linearWithView.inputs())
     } else {
       Seq(node)
     }
