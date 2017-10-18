@@ -229,4 +229,14 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     }
     SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
   }
+
+  "pvanet load"  should "work properly" in {
+    val prototxt = s"$home/data/caffeModels/pvanet/faster_rcnn_train_test_21cls.pt"
+    val caffemodel = s"$home/data/caffeModels/pvanet/PVA9.1_ImgNet_COCO_VOC0712.caffemodel"
+
+    if (!new File(prototxt).exists()) {
+      cancel("local test")
+    }
+    SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
+  }
 }

@@ -585,6 +585,7 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
 
   private def init() = {
     caffe2BigDL("CONVOLUTION") = fromCaffeConvolution
+    caffe2BigDL("DECONVOLUTION") = fromCaffeConvolution
     caffe2BigDL("INNERPRODUCT") = fromCaffeInnerProduct
     caffe2BigDL("INNER_PRODUCT") = fromCaffeInnerProduct
     caffe2BigDL("RELU") = fromCaffeReLU
@@ -620,8 +621,11 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
     caffe2BigDL("DETECTIONOUTPUT") = fromCaffeDetectionOutput
     caffe2BigDL("INPUT") = null
     caffe2BigDL("DATA") = null
+    caffe2BigDL("DUMMYDATA") = null
     caffe2BigDL("ANNOTATEDDATA") = null
     caffe2BigDL("DETECTIONEVALUATE") = null
     caffe2BigDL("MULTIBOXLOSS") = null
+    caffe2BigDL("SMOOTHL1LOSS") = null
+    caffe2BigDL("SILENCE") = null
   }
 }

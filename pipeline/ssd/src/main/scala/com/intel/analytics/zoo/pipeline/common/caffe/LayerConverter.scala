@@ -38,15 +38,12 @@ import scala.reflect.ClassTag
  */
 class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Converter[T] {
 
-  override protected def fromCaffeConvolution(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
-    val name = getLayerName(layer)
+  override protected def fromCaffeConvolution(layer : GeneratedMessage) : Seq[ModuleNode[T]] = {
     val param = getConvolutionParam(layer).get
-    val group = if (param.getGroup == 0) 1 else param.getGroup
-    val weightBlob = getBlob(layer, 0).get
+    val group = if (param.getGroup == 0)  1 else param.getGroup
+    val  weightBlob = getBlob(layer, 0).get
     val biasBlob = getBlob(layer, 1)
-    if (!biasBlob.isDefined) {
-      throw new RuntimeException(s"${ getLayerName(layer) } without bias is not supported now")
-    }
+    val withBias = biasBlob.isDefined
     val nInputPlane = if (weightBlob.hasShape) weightBlob.getShape.getDim(1) * group
     else weightBlob.getChannels * group
     val nOutPlane = if (weightBlob.hasShape) weightBlob.getShape.getDim(0)
@@ -55,7 +52,7 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
     var kh = param.getKernelH
     var dw = param.getStrideW
     var dh = param.getStrideH
-    if (kw == 0 || kh == 0) {
+    if (kw ==0 || kh == 0) {
       kw = param.getKernelSize(0)
       kh = kw
     }
@@ -77,9 +74,16 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
         ph = pw
       }
     }
+
     if (param.getDilationCount == 0 || param.getDilation(0) == 1) {
-      Seq(SpatialConvolution[T](nInputPlane.toInt, nOutPlane.toInt,
-        kw, kh, dw, dh, pw, ph, group).setName(getLayerName(layer)).inputs())
+      val layerType = getLayerType(layer).toUpperCase
+      if ("DECONVOLUTION" == layerType) {
+        Seq(SpatialFullConvolution[T](nOutPlane.toInt, nInputPlane.toInt,
+          kw, kh, dw, dh, pw, ph, 0, 0, group, !withBias).setName(getLayerName(layer)).inputs())
+      } else {
+        Seq(SpatialConvolution[T](nInputPlane.toInt, nOutPlane.toInt,
+          kw, kh, dw, dh, pw, ph, group, withBias).setName(getLayerName(layer)).inputs())
+      }
     } else {
       val dilation = param.getDilation(0)
       Seq(SpatialDilatedConvolution[T](nInputPlane.toInt, nOutPlane.toInt,

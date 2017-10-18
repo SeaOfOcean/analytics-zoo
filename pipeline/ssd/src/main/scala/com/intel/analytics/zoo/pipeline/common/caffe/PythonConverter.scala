@@ -33,6 +33,10 @@ class PythonConverter(implicit ev: TensorNumeric[Float]) extends Customizable[Fl
         Seq(Proposal(preNmsTopN = 6000,
           postNmsTopN = 300, Array[Float](0.5f, 1.0f, 2.0f), Array[Float](8, 16, 32))
           .setName(getLayerName(layer)).inputs())
+      case "AnchorTargetLayer" =>
+        null
+      case "ProposalTargetLayer" =>
+        null
     }
   }
 
