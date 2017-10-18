@@ -23,7 +23,7 @@ import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, PipelineCaffe
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import com.intel.analytics.zoo.pipeline.ssd.model.{SSDAlexNet, SSDVgg}
 import com.intel.analytics.bigdl.tensor.Tensor
-import com.intel.analytics.bigdl.utils.Engine
+import com.intel.analytics.bigdl.utils.{Engine, T}
 import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
 import org.apache.spark.SparkContext
 import org.scalatest.{FlatSpec, Matchers}
@@ -236,7 +236,12 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     }
     val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
       .asInstanceOf[Graph[Float]]
-    model.saveGraphTopology("/tmp/summary")
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 600, 900))
+    input.insert(Tensor[Float](T(600, 900, 1, 1)).resize(1, 4))
+    model.forward(input)
+    println(model.output.toTable.length())
+    // model.saveGraphTopology("/tmp/summary")
   }
 
   "pvanet load"  should "work properly" in {

@@ -111,8 +111,9 @@ object VggFRcnn {
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
       .inputs(rpn_cls_score, gt, imInfo, data)
 
-    val detectionOut = Postprocessor(postProcessParam).inputs(cls_prob, bbox_pred, roi_data,
-      rpn_cls_score_reshape, rpn_bbox_pred, rpn_data, imInfo)
+    val detectionOut = Postprocessor(postProcessParam).inputs(
+      cls_prob, bbox_pred, roi_data, imInfo,
+      rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
     val model = Graph(Array(data, imInfo, gt), detectionOut)
     model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "relu2_2"))
   }

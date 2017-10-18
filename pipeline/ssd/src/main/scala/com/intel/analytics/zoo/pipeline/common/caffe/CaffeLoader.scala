@@ -301,12 +301,14 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
    * to BigDL graph module
    * @return BigDL model and criterion
    */
-  def createCaffeModel(): (Module[T], ParallelCriterion[T]) = {
+  def createCaffeModel(outputNames: Array[String] = Array[String]())
+  : (Module[T], ParallelCriterion[T]) = {
     loadCaffe(prototxtPath, modelPath)
     registerCustomizedConverter()
     val layers = createLayers()
     val inputs = layers.filter(layer => layer.prevNodes.size == 0).toArray
-    val outputs = layers.filter(layer => layer.nextNodes.size == 0).toArray
+    val outputs = layers.filter(layer => layer.nextNodes.size == 0 ||
+      outputNames.contains(layer.element.getName())).toArray
     val module = Graph(inputs, outputs)
     module.setName(netparam.getName)
     copyParameters(module)
@@ -534,7 +536,7 @@ object CaffeLoader {
     customizedConverters: mutable.HashMap[String, Customizable[T]] = null)
     (implicit ev: TensorNumeric[T]): (Module[T], ParallelCriterion[T]) = {
     val caffeLoader = new CaffeLoader[T](defPath, modelPath, true, customizedConverters)
-    caffeLoader.createCaffeModel()
+    caffeLoader.createCaffeModel(Array("proposal", "im_info"))
   }
 }
 
