@@ -27,9 +27,10 @@ import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
 import org.scalatest.{FlatSpec, Matchers}
 
 class CaffeLoaderSpec extends FlatSpec with Matchers {
+  val home = System.getProperty("user.home")
   "ssd caffe load dynamically" should "work properly" in {
-    val prototxt = "/home/xianyan/Downloads/models/VGGNet/VOC0712/SSD_300x300/test.prototxt"
-    val caffemodel = "/home/xianyan/Downloads/models/VGGNet/VOC0712/SSD_300x300/" +
+    val prototxt = s"$home/Downloads/models/VGGNet/VOC0712/SSD_300x300/test.prototxt"
+    val caffemodel = s"$home/Downloads/models/VGGNet/VOC0712/SSD_300x300/" +
       "VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
     if (!new File(prototxt).exists()) {
       cancel("local test")
@@ -86,8 +87,8 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "ssd caffe load dynamically 512" should "work properly" in {
-    val prototxt = "/home/xianyan/Downloads/models/VGGNet/VOC0712/SSD_512x512/test.prototxt"
-    val caffemodel = "/home/xianyan/Downloads/models/VGGNet/VOC0712/SSD_512x512/" +
+    val prototxt = s"$home/Downloads/models/VGGNet/VOC0712/SSD_512x512/test.prototxt"
+    val caffemodel = s"$home/Downloads/models/VGGNet/VOC0712/SSD_512x512/" +
       "VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
 
     if (!new File(prototxt).exists()) {
@@ -128,8 +129,8 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "ssd caffe load dynamically alexnet" should "work properly" in {
-    val prototxt = "/home/xianyan/data/ssd/jingdong/deploy.prototxt"
-    val caffemodel = "/home/xianyan/data/ssd/jingdong/" +
+    val prototxt = s"$home/data/ssd/jingdong/deploy.prototxt"
+    val caffemodel = s"$home/data/ssd/jingdong/" +
       "ALEXNET_JDLOGO_V4_SSD_300x300_iter_920.caffemodel"
 
     if (!new File(prototxt).exists()) {
@@ -165,8 +166,8 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "deepbit model load" should "work properly" in {
-    val prototxt = "/home/xianyan/Downloads/models/deploy16.prototxt"
-    val caffemodel = "/home/xianyan/Downloads/models/DeepBit16_final_iter_1.caffemodel"
+    val prototxt = s"$home/Downloads/models/deploy16.prototxt"
+    val caffemodel = s"$home/Downloads/models/DeepBit16_final_iter_1.caffemodel"
 
     if (!new File(prototxt).exists()) {
       cancel("local test")
@@ -181,14 +182,14 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "deepbit model load with caffe input" should "work properly" in {
-    val prototxt = "/home/xianyan/Downloads/models/deploy16.prototxt"
-    val caffemodel = "/home/xianyan/Downloads/models/DeepBit16_final_iter_1.caffemodel"
+    val prototxt = s"$home/Downloads/models/deploy16.prototxt"
+    val caffemodel = s"$home/Downloads/models/DeepBit16_final_iter_1.caffemodel"
 
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    TestUtil.middleRoot = "/home/xianyan/data/deepbit"
-    val input = TestUtil.loadFeaturesFullPath("/home/xianyan/data/deepbit/data-2_3_224_224.txt")
+    TestUtil.middleRoot = "$home/data/deepbit"
+    val input = TestUtil.loadFeaturesFullPath("$home/data/deepbit/data-2_3_224_224.txt")
     val model = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     ModuleUtil.shareMemory(model)
@@ -200,13 +201,13 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "deepbit 1.0 model load with caffe input" should "work properly" in {
-    val prototxt = "/home/xianyan/Downloads/models/deepbit_1.0.prototxt"
-    val caffemodel = "/home/xianyan/Downloads/models/deepbit_1.0.caffemodel"
+    val prototxt = s"$home/Downloads/models/deepbit_1.0.prototxt"
+    val caffemodel = s"$home/Downloads/models/deepbit_1.0.caffemodel"
 
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    TestUtil.middleRoot = "/home/xianyan/data/deepbit/1.0"
+    TestUtil.middleRoot = "$home/data/deepbit/1.0"
     val input = TestUtil.loadFeatures("data")
 //    val input = Tensor[Float](1, 3, 227, 227)
     val model = SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
@@ -217,5 +218,15 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     val namedModule = Utils.getNamedModules(model)
     TestUtil.assertEqual("fc8_kevin", namedModule("fc8_kevin").output.toTensor, 1e-7)
     println(output.toTensor[Float].size().mkString("x"))
+  }
+
+  "fasterrcnn vgg load with caffe" should "work properly" in {
+    val prototxt = s"$home/data/caffeModels/vgg16/test.prototxt"
+    val caffemodel = s"$home/data/caffeModels/vgg16/test.caffemodel"
+
+    if (!new File(prototxt).exists()) {
+      cancel("local test")
+    }
+    SSDCaffeLoader.loadCaffe(prototxt, caffemodel)
   }
 }

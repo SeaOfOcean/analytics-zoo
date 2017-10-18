@@ -21,7 +21,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class AnchorTargetSpec extends FlatSpec with Matchers {
 //  TestUtil.middleRoot = "/home/jxy/data/middle/vgg16/step1/"
 //  val param = new VggParam()
-//  val imdb = Imdb.getImdb("voc_2007_testcode1", "/home/xianyan/data/VOCdevkit")
+//  val imdb = Imdb.getImdb("voc_2007_testcode1", "$home/data/VOCdevkit")
 //  val roidb = imdb.loadAnnotation("000014")
 //  val reader = LocalByteRoiImageReader()
 //  val resizer = RoiImageResizer(param.SCALES, param.SCALE_MULTIPLE_OF, true)
@@ -30,7 +30,7 @@ class AnchorTargetSpec extends FlatSpec with Matchers {
 //  println(img.target)
 //  val anchorTarget = new AnchorTarget[Float](param)
 //  val insideAnchorsGtOverlaps =
-//    TestUtil.loadFeatures("insideAnchorsGtOverlaps", "/home/xianyan/data/middle/vgg16/step1")
+//    TestUtil.loadFeatures("insideAnchorsGtOverlaps", "$home/data/middle/vgg16/step1")
 //  val featureW = 57
 //  val featureH = 38
 //  val (indsInside, insideAnchors, totalAnchors) =
@@ -63,7 +63,7 @@ class AnchorTargetSpec extends FlatSpec with Matchers {
 //  }
 //
 //  def compare(name: String, vec: Tensor[Float], prec: Double): Unit = {
-//    val exp = TestUtil.loadFeatures(name, "/home/xianyan/data/middle/vgg16/step1")
+//    val exp = TestUtil.loadFeatures(name, "$home/data/middle/vgg16/step1")
 //    TestUtil.assertEqualIgnoreSize(exp, vec, name, prec)
 //  }
 }

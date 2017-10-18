@@ -28,8 +28,8 @@ import com.intel.analytics.bigdl.utils.{File, Table}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
-import pipeline.ssd.caffe.Caffe
-import pipeline.ssd.caffe.Caffe._
+import pipeline.caffe.Caffe
+import pipeline.caffe.Caffe._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -45,6 +45,10 @@ abstract class Customizable[T: ClassTag](implicit ev: TensorNumeric[T]) {
       contexts = Map[String, Any]()
     }
     contexts += (name -> context)
+  }
+
+  def getLayerName(layer: GeneratedMessage): String = {
+    layer.asInstanceOf[LayerParameter].getName
   }
 }
 /**
@@ -519,8 +523,9 @@ object CaffeLoader {
 object SSDCaffeLoader {
 
   val customized = new mutable.HashMap[String, Customizable[Float]]()
-  val priorBox = new PriorBoxConvertor[Float]()
-  customized.put("PRIORBOX", priorBox)
+  customized.put("PRIORBOX", new PriorBoxConvertor[Float]())
+  customized.put("PYTHON", new PythonConverter())
+  customized.put("ROIPOOLING", new RoiPoolingConverter[Float]())
 
   def loadCaffe(defPath: String, modelPath: String): Module[Float] = {
     CaffeLoader.loadCaffe[Float](defPath, modelPath, customized)._1

@@ -25,9 +25,9 @@ import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.ssd.model.PostProcessParam
-import pipeline.ssd.caffe.Caffe
-import pipeline.ssd.caffe.Caffe.EltwiseParameter.EltwiseOp
-import pipeline.ssd.caffe.Caffe.{BlobProto, PoolingParameter, _}
+import pipeline.caffe.Caffe
+import pipeline.caffe.Caffe.EltwiseParameter.EltwiseOp
+import pipeline.caffe.Caffe.{BlobProto, PoolingParameter, _}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer

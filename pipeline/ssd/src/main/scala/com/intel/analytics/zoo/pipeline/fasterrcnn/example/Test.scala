@@ -35,6 +35,7 @@ object Test {
   case class TestParam(folder: String = "",
     modelType: String = "",
     imageSet: String = "voc_2007_test",
+    bigdlModel: String = "",
     caffeDefPath: String = "",
     caffeModelPath: String = "",
     nClass: Int = 21,
@@ -55,14 +56,15 @@ object Test {
       .text("imageset: voc_2007_test")
       .action((x, c) => c.copy(imageSet = x))
       .required()
+    opt[String]("model")
+      .text("bigdl model")
+      .action((x, c) => c.copy(bigdlModel = x))
     opt[String]("caffeDefPath")
       .text("caffe prototxt")
       .action((x, c) => c.copy(caffeDefPath = x))
-      .required()
     opt[String]("caffeModelPath")
       .text("caffe model path")
       .action((x, c) => c.copy(caffeModelPath = x))
-      .required()
     opt[Int]("nclass")
       .text("class number")
       .action((x, c) => c.copy(nClass = x))

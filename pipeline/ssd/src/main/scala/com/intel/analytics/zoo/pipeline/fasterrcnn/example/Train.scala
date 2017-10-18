@@ -192,7 +192,7 @@ object Train {
       .setOptimMethod(optimMethod)
       .setValidation(Trigger.everyEpoch,
         valSet.asInstanceOf[DataSet[MiniBatch[Float]]],
-        Array(new MeanAveragePrecision(true, normalized = true,
+        Array(new MeanAveragePrecision(use07metric = true, normalized = false,
           nClass = param.classNumber)))
       .setEndWhen(endTrigger)
       .optimize()

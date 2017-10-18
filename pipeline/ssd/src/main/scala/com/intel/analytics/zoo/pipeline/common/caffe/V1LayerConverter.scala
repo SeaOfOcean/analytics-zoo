@@ -23,10 +23,10 @@ import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, Activity}
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
-import pipeline.ssd.caffe.Caffe
-import pipeline.ssd.caffe.Caffe.EltwiseParameter.EltwiseOp
-import pipeline.ssd.caffe.Caffe.V1LayerParameter.LayerType
-import pipeline.ssd.caffe.Caffe._
+import pipeline.caffe.Caffe
+import pipeline.caffe.Caffe.EltwiseParameter.EltwiseOp
+import pipeline.caffe.Caffe.V1LayerParameter.LayerType
+import pipeline.caffe.Caffe._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer

@@ -22,8 +22,20 @@ import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{T, Table}
+import org.apache.log4j.Logger
+import FrcnnCriterion._
 
+object FrcnnCriterion {
+  val logger = Logger.getLogger(getClass)
+  def apply(rpnSigma: Float = 3, frcnnSigma: Float = 1,
+    ignoreLabel: Option[Int] = Some(-1), rpnLossClsWeight: Float = 1,
+    rpnLossBboxWeight: Float = 1,
+    lossClsWeight: Float = 1,
+    lossBboxWeight: Float = 1)(implicit ev: TensorNumeric[Float]): FrcnnCriterion =
+    new FrcnnCriterion(rpnSigma, frcnnSigma, ignoreLabel, rpnLossClsWeight, rpnLossBboxWeight,
+      lossClsWeight)
 
+}
 class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   ignoreLabel: Option[Int] = Some(-1), rpnLossClsWeight: Float = 1,
   rpnLossBboxWeight: Float = 1,
@@ -74,6 +86,10 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
     data.insert(4, rpn_bbox_pred)
     label.insert(4, getSubTable(rpn_data, anchorBbox, 2, 3))
     output = criterion.updateOutput(data, label)
+    logger.info(s"Train net output #0: loss_bbox = ${criterion.outputs[Float](2)}")
+    logger.info(s"Train net output #1: loss_cls = ${criterion.outputs[Float](1)}")
+    logger.info(s"Train net output #2: rpn_cls_loss = ${criterion.outputs[Float](3)}")
+    logger.info(s"Train net output #3: rpn_loss_bbox = ${criterion.outputs[Float](4)}")
     output
   }
 

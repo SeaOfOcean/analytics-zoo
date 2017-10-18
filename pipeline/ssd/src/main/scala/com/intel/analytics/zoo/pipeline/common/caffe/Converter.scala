@@ -25,10 +25,10 @@ import com.intel.analytics.bigdl.pipeline.common.nn.CaffeSpatialAveragePooling
 import com.intel.analytics.zoo.pipeline.common.nn.SpatialWithinChannelLRN
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
-import pipeline.ssd.caffe.Caffe.EltwiseParameter.EltwiseOp
-import pipeline.ssd.caffe.Caffe.LRNParameter.NormRegion
-import pipeline.ssd.caffe.Caffe.PoolingParameter.PoolMethod
-import pipeline.ssd.caffe.Caffe._
+import pipeline.caffe.Caffe.EltwiseParameter.EltwiseOp
+import pipeline.caffe.Caffe.LRNParameter.NormRegion
+import pipeline.caffe.Caffe.PoolingParameter.PoolMethod
+import pipeline.caffe.Caffe._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
