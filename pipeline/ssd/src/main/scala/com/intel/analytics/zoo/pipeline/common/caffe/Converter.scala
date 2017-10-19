@@ -82,22 +82,10 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
     }
   }
 
-  protected def fromCaffeInput(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
-    val layerName = getLayerName(layer)
-    println(layerName)
-    val input = Input()
-    input.element.setName(layerName)
-    Seq(input)
-  }
 
-  def convertDataFromCaffe(netparam: Caffe.NetParameter): Seq[ModuleNode[T]] = {
-    val inputs = netparam.getInputList
-    (0 until inputs.size()).map(i => {
-      val input = Input()
-      input.element.setName(inputs.get(i))
-      input
-    })
-  }
+//  def convertDataFromCaffe(netparam: Caffe.NetParameter): Seq[ModuleNode[T]] = {
+//
+//  }
 //    val layerType = getLayerType(layer).toUpperCase
 //    if (layerType.endsWith("DATA") || layerType == "INPUT") {
       //      var transformer: Transformer[Data, Data] =
@@ -351,6 +339,8 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
   protected def getPermuteParam(layer: GeneratedMessage): Option[PermuteParameter]
 
   protected def getPriorBoxParam(layer: GeneratedMessage): Option[PriorBoxParameter]
+
+  protected def fromCaffeInput(layer: GeneratedMessage): Seq[ModuleNode[T]]
 
   def toCaffe(moduleNode: AbstractModule[Activity, Tensor[T], T],
     bottoms: ArrayBuffer[String], nextSize: Int): Seq[GeneratedMessage] = {

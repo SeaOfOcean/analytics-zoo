@@ -266,6 +266,15 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     }
     val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
       .asInstanceOf[Graph[Float]]
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 60, 90))
+    input.insert(Tensor[Float](T(60, 90, 1, 1)).resize(1, 4))
+
     model.saveGraphTopology("/tmp/summary")
+    val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
+    ModuleUtil.shareMemory(model)
+    val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
+    modelWithPostprocess.forward(input)
+//    model.saveGraphTopology("/tmp/summary")
   }
 }

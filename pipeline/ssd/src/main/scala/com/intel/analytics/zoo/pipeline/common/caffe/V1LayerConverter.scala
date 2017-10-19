@@ -94,7 +94,7 @@ class V1LayerConverter[T: ClassTag]()
       // Construct a view layer in between
       val view = View[T](nInputPlane).inputs()
       view -> node
-      Seq(view, node)
+      Seq(view)
     } else {
       Seq(node)
     }
@@ -129,6 +129,15 @@ class V1LayerConverter[T: ClassTag]()
   // No implementation in V1
   override protected def fromCaffeTile(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
     throw new UnsupportedOperationException("Tile is not supported in V1 Layer")
+  }
+
+  override protected def fromCaffeInput(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
+    val tops = layer.asInstanceOf[V1LayerParameter].getTopList
+    (0 until tops.size()).map(i => {
+      val input = Input()
+      input.element.setName(tops.get(i))
+      input
+    })
   }
 
   override protected def toCaffeConvolution(module: AbstractModule[Activity, Tensor[T], T],

@@ -109,9 +109,9 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
     val node = linear.inputs()
     if (nInputPlane != nOutputPlane) {
       // Construct a view layer in between
-      val view = View[T](nInputPlane)
-      val linearWithView = Sequential().add(view).add(linear)
-      Seq(linearWithView.inputs())
+      val view = View[T](nInputPlane).inputs()
+      view -> node
+      Seq(view)
     } else {
       Seq(node)
     }
@@ -754,6 +754,19 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
       variances, offset,
       imgH, imgW, imgSize,
       stepH, stepW, step).setName(getLayerName(layer)).inputs())
+  }
+
+  override protected def fromCaffeInput(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
+    val layerParam = layer.asInstanceOf[LayerParameter]
+    val tops = layerParam.getTopList
+    val phases = layerParam.getIncludeList
+    if (phases.size() > 0) println(phases.get(0))
+    (0 until tops.size()).map(i => {
+      val input = Input()
+      input.element.setName(tops.get(i))
+      println(tops.get(i))
+      input
+    })
   }
 
   override protected def getPriorBoxParam(layer: GeneratedMessage): Option[PriorBoxParameter] = {
