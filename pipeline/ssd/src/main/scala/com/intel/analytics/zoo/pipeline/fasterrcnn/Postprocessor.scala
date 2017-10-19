@@ -222,10 +222,14 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
       output = input
       return output
     }
-    val scores = input[Tensor[Float]](1)
-    val boxDeltas = input[Tensor[Float]](2)
-    val rois = input[Table](3)[Tensor[Float]](1)
-    val imInfo = input[Tensor[Float]](7)
+    val imInfo = input[Tensor[Float]](1)
+    val rois = input[Tensor[Float]](2)
+    val boxDeltas = input[Tensor[Float]](3)
+    val scores = input[Tensor[Float]](4)
+    println(input.toTable.length())
+    (1 to input.length()).foreach(i => {
+      println(input.toTable[Tensor[Float]](i).size().mkString("x"))
+    })
     output = resultToTensor(process(scores, boxDeltas, rois, imInfo))
     output
   }

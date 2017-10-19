@@ -89,7 +89,8 @@ object Test {
         nClass = params.nClass)
       val rdd = IOUtils.loadSeqFiles(params.nPartition, params.folder, sc)
 
-      val model = PipelineCaffeLoader.loadCaffe(params.caffeDefPath, params.caffeModelPath)
+      val model = PipelineCaffeLoader.loadCaffe(params.caffeDefPath, params.caffeModelPath,
+        Array("proposal", "im_info"))
       val (preParam, postParam) = params.modelType.toLowerCase() match {
         case "vgg16" =>
           val postParam = PostProcessParam(0.3f, params.nClass, false, 100, 0.05)

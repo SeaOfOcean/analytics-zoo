@@ -18,13 +18,15 @@ package com.intel.analytics.zoo.pipeline.common
 
 import java.io.File
 
-import com.intel.analytics.bigdl.nn.{Graph, Utils}
+import com.intel.analytics.bigdl.nn.{Graph, Sequential, Utils}
 import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, PipelineCaffeLoader}
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import com.intel.analytics.zoo.pipeline.ssd.model.{SSDAlexNet, SSDVgg}
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.{Engine, T}
 import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
+import com.intel.analytics.zoo.pipeline.fasterrcnn.Postprocessor
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PostProcessParam
 import org.apache.spark.SparkContext
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -223,7 +225,6 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "fasterrcnn vgg load with caffe" should "work properly" in {
-
     val conf = Engine.createSparkConf().setMaster("local[2]")
       .setAppName("Spark-DL Faster RCNN Test")
     val sc = new SparkContext(conf)
@@ -234,13 +235,20 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel, Array("proposal", "im_info"))
       .asInstanceOf[Graph[Float]]
     val input = T()
-    input.insert(Tensor[Float](1, 3, 600, 900))
-    input.insert(Tensor[Float](T(600, 900, 1, 1)).resize(1, 4))
-    model.forward(input)
-    println(model.output.toTable.length())
+    input.insert(Tensor[Float](1, 3, 60, 90))
+    input.insert(Tensor[Float](T(60, 90, 1, 1)).resize(1, 4))
+
+    val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
+    ModuleUtil.shareMemory(model)
+    val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
+    modelWithPostprocess.forward(input)
+//    println(model.output.toTable.length())
+//    (1 to model.output.toTable.length()).foreach(i => {
+//      println(model.output.toTable[Tensor[Float]](i).size().mkString("x"))
+//    })
     // model.saveGraphTopology("/tmp/summary")
   }
 

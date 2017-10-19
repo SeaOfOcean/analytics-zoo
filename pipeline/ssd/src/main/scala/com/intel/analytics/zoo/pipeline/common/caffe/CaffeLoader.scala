@@ -309,6 +309,16 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
     val inputs = layers.filter(layer => layer.prevNodes.size == 0).toArray
     val outputs = layers.filter(layer => layer.nextNodes.size == 0 ||
       outputNames.contains(layer.element.getName())).toArray
+//    val outputs = if (null != outputNames && outputNames.length > 0) {
+//        outputNames.map(name => {
+//          layers.find(layer => layer.element.getName() == name) match {
+//            case Some(layer) => layer
+//            case _ => throw new Exception(s"cannot find layer that matches $name in model")
+//          }
+//        })
+//    } else {
+//        layers.filter(layer => layer.nextNodes.size == 0).toArray
+//    }
     val module = Graph(inputs, outputs)
     module.setName(netparam.getName)
     copyParameters(module)
@@ -533,10 +543,11 @@ object CaffeLoader {
    * @return created module (graph) and criterion
    */
   def loadCaffe[T: ClassTag](defPath: String, modelPath: String,
-    customizedConverters: mutable.HashMap[String, Customizable[T]] = null)
+    customizedConverters: mutable.HashMap[String, Customizable[T]] = null,
+    outputs: Array[String] = Array[String]())
     (implicit ev: TensorNumeric[T]): (Module[T], ParallelCriterion[T]) = {
     val caffeLoader = new CaffeLoader[T](defPath, modelPath, true, customizedConverters)
-    caffeLoader.createCaffeModel(Array("proposal", "im_info"))
+    caffeLoader.createCaffeModel(outputs)
   }
 }
 
@@ -547,7 +558,8 @@ object PipelineCaffeLoader {
   customized.put("PYTHON", new PythonConverter())
   customized.put("ROIPOOLING", new RoiPoolingConverter[Float]())
 
-  def loadCaffe(defPath: String, modelPath: String): Module[Float] = {
-    CaffeLoader.loadCaffe[Float](defPath, modelPath, customized)._1
+  def loadCaffe(defPath: String, modelPath: String,
+    outputs: Array[String] = Array[String]()): Module[Float] = {
+    CaffeLoader.loadCaffe[Float](defPath, modelPath, customized, outputs)._1
   }
 }
