@@ -22,17 +22,17 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.zoo.pipeline.common.nn.Proposal
 import pipeline.caffe.Caffe.LayerParameter
 
+import scala.util.parsing.json.JSON
+
 
 class PythonConverter(implicit ev: TensorNumeric[Float]) extends Customizable[Float] {
+
+
   override def convertor(layer: GeneratedMessage): Seq[ModuleNode[Float]] = {
     val param = layer.asInstanceOf[LayerParameter].getPythonParam
     val layerName = param.getLayer
     layerName match {
-      case "ProposalLayer" =>
-        // for faster rcnn
-        Seq(Proposal(preNmsTopN = 6000,
-          postNmsTopN = 300, Array[Float](0.5f, 1.0f, 2.0f), Array[Float](8, 16, 32))
-          .setName(getLayerName(layer)).inputs())
+      case "ProposalLayer" => convertProposal(layer)
       case "AnchorTargetLayer" =>
         null
       case "ProposalTargetLayer" =>
@@ -40,4 +40,20 @@ class PythonConverter(implicit ev: TensorNumeric[Float]) extends Customizable[Fl
     }
   }
 
+  def convertProposal(layer: GeneratedMessage): Seq[ModuleNode[Float]] = {
+    val param = layer.asInstanceOf[LayerParameter].getPythonParam
+    val paramStr = param.getParamStr.replaceAll("'", "\"")
+    val (ratios, scales) = JSON.parseFull(paramStr) match {
+      case Some(map: Map[String, Any]) => {
+        val ratios = map("ratios").asInstanceOf[List[Double]].toArray.map(_.toFloat)
+        val scales = map("scales").asInstanceOf[List[Double]].toArray.map(_.toFloat)
+        (ratios, scales)
+      }
+      case _ =>
+        throw new Exception("cannot match ratios and scales in proposal layer")
+    }
+    // for faster rcnn
+    Seq(Proposal(preNmsTopN = 6000, postNmsTopN = 300, ratios, scales)
+      .setName(getLayerName(layer)).inputs())
+  }
 }

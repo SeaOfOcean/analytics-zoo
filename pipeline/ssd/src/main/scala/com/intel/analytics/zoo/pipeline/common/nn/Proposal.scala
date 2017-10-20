@@ -30,8 +30,8 @@ import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor}
  * scores: holds scores for R regions of interest
  *
  */
-class Proposal(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: Array[Float])
-  extends AbstractModule[Table, Tensor[Float], Float] {
+class Proposal(preNmsTopN: Int, postNmsTopN: Int, val ratios: Array[Float],
+  val scales: Array[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
 
   private val anchorUtil: Anchor = Anchor(ratios, scales)
   @transient private var nms: Nms = _

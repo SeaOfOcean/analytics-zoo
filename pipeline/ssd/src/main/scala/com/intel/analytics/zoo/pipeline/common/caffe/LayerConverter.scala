@@ -120,11 +120,15 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
   override protected def fromCaffeBatchNormalization(layer: GeneratedMessage):
   Seq[ModuleNode[T]] = {
     val weightBlob = getBlob(layer, 0).get
-    val nOutPlane = if (weightBlob.hasShape) weightBlob.getShape.getDim(0)
-    else weightBlob.getNum
+    val nOutPlane = if (weightBlob.hasShape) weightBlob.getShape.getDim(0) else weightBlob.getNum
     val param = layer.asInstanceOf[LayerParameter].getBatchNormParam
     val eps = param.getEps
-    Seq(SpatialBatchNormalization[T](nOutPlane.toInt, eps).setName(getLayerName(layer)).inputs())
+    val name = getLayerName(layer)
+    if (name.startsWith("fc")) {
+      Seq(BatchNormalization[T](nOutPlane.toInt, eps).setName(getLayerName(layer)).inputs())
+    } else {
+      Seq(SpatialBatchNormalization[T](nOutPlane.toInt, eps).setName(getLayerName(layer)).inputs())
+    }
   }
 
   override protected def fromCaffeELU(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
@@ -759,12 +763,9 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
   override protected def fromCaffeInput(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
     val layerParam = layer.asInstanceOf[LayerParameter]
     val tops = layerParam.getTopList
-    val phases = layerParam.getIncludeList
-    if (phases.size() > 0) println(phases.get(0))
     (0 until tops.size()).map(i => {
       val input = Input()
       input.element.setName(tops.get(i))
-      println(tops.get(i))
       input
     })
   }

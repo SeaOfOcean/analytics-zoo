@@ -32,10 +32,14 @@ import scala.collection.mutable.ArrayBuffer
 object Postprocessor {
   val logger = Logger.getLogger(this.getClass)
 
-  def apply(param: PostProcessParam): Postprocessor = new Postprocessor(param)
+  def apply(param: PostProcessParam): Postprocessor =
+    new Postprocessor(param.nmsThresh, param.nClasses, param.bboxVote, param.maxPerImage,
+      param.thresh)
 }
 
-class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activity, Float] {
+class Postprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
+  var bboxVote: Boolean, var maxPerImage: Int = 100, var thresh: Double = 0.05)
+  extends AbstractModule[Table, Activity, Float] {
 
   @transient var nmsTool: Nms = _
 
@@ -48,16 +52,16 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
   private def postProcess(scores: Tensor[Float], boxes: Tensor[Float])
   : Array[RoiLabel] = {
     require(scores.size(1) == boxes.size(1))
-    val results = new Array[RoiLabel](param.nClasses)
+    val results = new Array[RoiLabel](nClasses)
     // skip j = 0, because it's the background class
     var clsInd = 1
-    while (clsInd < param.nClasses) {
+    while (clsInd < nClasses) {
       results(clsInd) = postProcessOneClass(scores, boxes, clsInd)
       clsInd += 1
     }
 
     // Limit to max_per_image detections *over all classes*
-    if (param.maxPerImage > 0) {
+    if (maxPerImage > 0) {
       limitMaxPerImage(results)
     }
     results
@@ -75,7 +79,7 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
 
     outi.setValue(1, maxDetection)
     var offset = 2
-    (0 until param.nClasses).foreach(c => {
+    (0 until nClasses).foreach(c => {
       val label = results(c)
       if (null != label) {
         (1 to label.size()).foreach(j => {
@@ -97,16 +101,16 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
   private def postProcessOneClass(scores: Tensor[Float], boxes: Tensor[Float],
     clsInd: Int): RoiLabel = {
     val inds = (1 to scores.size(1)).filter(ind =>
-      scores.valueAt(ind, clsInd + 1) > param.thresh).toArray
+      scores.valueAt(ind, clsInd + 1) > thresh).toArray
     if (inds.length == 0) return null
     val clsScores = selectTensor(scores.select(2, clsInd + 1), inds, 1)
     val clsBoxes = selectTensor(boxes.narrow(2, clsInd * 4 + 1, 4), inds, 1)
 
-    val keepN = nmsTool.nms(clsScores, clsBoxes, param.nmsThresh, inds)
+    val keepN = nmsTool.nms(clsScores, clsBoxes, nmsThresh, inds)
 
     val bboxNms = selectTensor(clsBoxes, inds, 1, keepN)
     val scoresNms = selectTensor(clsScores, inds, 1, keepN)
-    if (param.bboxVote) {
+    if (bboxVote) {
       if (areas == null) areas = Tensor[Float]
       BboxUtil.bboxVote(scoresNms, bboxNms, clsScores, clsBoxes, areas)
     } else {
@@ -163,12 +167,12 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
   }
 
   def limitMaxPerImage(results: Array[RoiLabel]): Unit = {
-    val nImageScores = (1 until param.nClasses).map(j => if (results(j) == null) 0
+    val nImageScores = (1 until nClasses).map(j => if (results(j) == null) 0
     else results(j).classes.size(1)).sum
-    if (nImageScores > param.maxPerImage) {
+    if (nImageScores > maxPerImage) {
       val imageScores = ArrayBuffer[Float]()
       var j = 1
-      while (j < param.nClasses) {
+      while (j < nClasses) {
         val res = results(j).classes
         if (res.nElement() > 0) {
           res.apply1(x => {
@@ -178,9 +182,9 @@ class Postprocessor(param: PostProcessParam) extends AbstractModule[Table, Activ
         }
         j += 1
       }
-      val imageThresh = imageScores.sortWith(_ < _)(imageScores.length - param.maxPerImage)
+      val imageThresh = imageScores.sortWith(_ < _)(imageScores.length - maxPerImage)
       j = 1
-      while (j < param.nClasses) {
+      while (j < nClasses) {
         val box = results(j).bboxes
         val keep = (1 to box.size(1)).filter(x =>
           box.valueAt(x, box.size(2)) >= imageThresh).toArray

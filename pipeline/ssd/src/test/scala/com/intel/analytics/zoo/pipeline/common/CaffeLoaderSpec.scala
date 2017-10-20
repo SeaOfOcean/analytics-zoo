@@ -19,6 +19,7 @@ package com.intel.analytics.zoo.pipeline.common
 import java.io.File
 
 import com.intel.analytics.bigdl.nn.{Graph, Sequential, Utils}
+import com.intel.analytics.bigdl.utils.{File => DLFile}
 import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, PipelineCaffeLoader}
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import com.intel.analytics.zoo.pipeline.ssd.model.{SSDAlexNet, SSDVgg}
@@ -264,16 +265,22 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
-      .asInstanceOf[Graph[Float]]
+//    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
+//      .asInstanceOf[Graph[Float]]
+    val model = DLFile.load[Graph[Float]]("/tmp/pvanet.bin")
     val input = T()
-    input.insert(Tensor[Float](1, 3, 60, 90))
-    input.insert(Tensor[Float](T(60, 90, 1, 1)).resize(1, 4))
+    input.insert(Tensor[Float](1, 3, 640, 960))
+    input.insert(Tensor[Float](T(640, 960, 1, 1)).resize(1, 4))
+//    model.save("/tmp/pvanet.bin", true)
+//    model.saveModule("/tmp/pvanet.model", true)
+    println("save model done")
 
-    model.saveGraphTopology("/tmp/summary")
+//    model.saveGraphTopology("/tmp/summary")
     val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
     ModuleUtil.shareMemory(model)
     val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
+
+    modelWithPostprocess.saveModule("/tmp/pvanet.model", true)
     modelWithPostprocess.forward(input)
 //    model.saveGraphTopology("/tmp/summary")
   }
