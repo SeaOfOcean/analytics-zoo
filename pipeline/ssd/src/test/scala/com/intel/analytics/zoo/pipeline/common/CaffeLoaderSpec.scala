@@ -18,7 +18,7 @@ package com.intel.analytics.zoo.pipeline.common
 
 import java.io.File
 
-import com.intel.analytics.bigdl.nn.{Graph, Sequential, Utils}
+import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.utils.{File => DLFile}
 import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, PipelineCaffeLoader}
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
@@ -26,6 +26,7 @@ import com.intel.analytics.zoo.pipeline.ssd.model.{SSDAlexNet, SSDVgg}
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.{Engine, T}
 import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
+import com.intel.analytics.zoo.pipeline.common.nn.Proposal
 import com.intel.analytics.zoo.pipeline.fasterrcnn.Postprocessor
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PostProcessParam
 import org.apache.spark.SparkContext
@@ -265,9 +266,9 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-//    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
-//      .asInstanceOf[Graph[Float]]
-    val model = DLFile.load[Graph[Float]]("/tmp/pvanet.bin")
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
+      .asInstanceOf[Graph[Float]]
+//    val model = DLFile.load[Graph[Float]]("/tmp/pvanet.bin")
     val input = T()
     input.insert(Tensor[Float](1, 3, 640, 960))
     input.insert(Tensor[Float](T(640, 960, 1, 1)).resize(1, 4))
@@ -283,5 +284,42 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     modelWithPostprocess.saveModule("/tmp/pvanet.model", true)
     modelWithPostprocess.forward(input)
 //    model.saveGraphTopology("/tmp/summary")
+  }
+
+  "pvanet forward"  should "work properly" in {
+
+    val conf = Engine.createSparkConf().setMaster("local[2]")
+      .setAppName("Spark-DL Faster RCNN Test")
+    val sc = new SparkContext(conf)
+    Engine.init
+    val prototxt = s"$home/data/caffeModels/pvanet/faster_rcnn_train_test_21cls.pt"
+    val caffemodel = s"$home/data/caffeModels/pvanet/PVA9.1_ImgNet_COCO_VOC0712.caffemodel"
+
+    if (!new File(prototxt).exists()) {
+      cancel("local test")
+    }
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 640, 960))
+    input.insert(Tensor[Float](T(640, 960, 1, 1)).resize(1, 4))
+    val modelWithPostprocess = Module.loadModule[Float]("/tmp/pvanet.model")
+    println("load done !")
+    modelWithPostprocess.forward(input)
+//    model.saveGraphTopology("/tmp/summary")
+  }
+
+  "load and save" should "work" in {
+    val model = Sequential[Float]()
+    val graph = Input[Float]()
+    val linear = Linear[Float](20, 20)
+    linear.inputs(graph)
+    model.add(linear)
+    model.saveModule("/tmp/model", true)
+    Module.loadModule[Float]("/tmp/model")
+  }
+
+  "load and save2" should "work" in {
+    val model = Proposal(1, 1, Array[Float](0.1f), Array[Float](1f))
+    model.saveModule("/tmp/propsal", true)
+    Module.loadModule[Float]("/tmp/propsal")
   }
 }

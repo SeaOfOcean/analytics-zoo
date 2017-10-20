@@ -18,9 +18,10 @@ package com.intel.analytics.zoo.pipeline.common.nn
 
 import com.intel.analytics.bigdl.nn.abstractnn.AbstractModule
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.Anchor
 
 /**
  * Outputs object detection proposals by applying estimated bounding-box
@@ -31,7 +32,8 @@ import com.intel.analytics.zoo.pipeline.fasterrcnn.{Anchor}
  *
  */
 class Proposal(preNmsTopN: Int, postNmsTopN: Int, val ratios: Array[Float],
-  val scales: Array[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
+  val scales: Array[Float])(
+  implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
 
   private val anchorUtil: Anchor = Anchor(ratios, scales)
   @transient private var nms: Nms = _
@@ -201,7 +203,8 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, val ratios: Array[Float],
 }
 
 object Proposal {
-  def apply(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: Array[Float]): Proposal
+  def apply(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: Array[Float])
+    (implicit ev: TensorNumeric[Float]): Proposal
   = new Proposal(preNmsTopN, postNmsTopN, ratios, scales)
 }
 

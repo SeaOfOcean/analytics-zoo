@@ -20,6 +20,7 @@ import com.intel.analytics.bigdl.nn.Nms
 import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, Activity}
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PostProcessParam
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
@@ -32,14 +33,15 @@ import scala.collection.mutable.ArrayBuffer
 object Postprocessor {
   val logger = Logger.getLogger(this.getClass)
 
-  def apply(param: PostProcessParam): Postprocessor =
+  def apply(param: PostProcessParam)(
+    implicit ev: TensorNumeric[Float]): Postprocessor =
     new Postprocessor(param.nmsThresh, param.nClasses, param.bboxVote, param.maxPerImage,
       param.thresh)
 }
 
 class Postprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
-  var bboxVote: Boolean, var maxPerImage: Int = 100, var thresh: Double = 0.05)
-  extends AbstractModule[Table, Activity, Float] {
+  var bboxVote: Boolean, var maxPerImage: Int = 100, var thresh: Double = 0.05)(
+  implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Activity, Float] {
 
   @transient var nmsTool: Nms = _
 
