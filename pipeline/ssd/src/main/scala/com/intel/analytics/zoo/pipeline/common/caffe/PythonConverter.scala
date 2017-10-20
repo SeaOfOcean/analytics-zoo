@@ -50,7 +50,9 @@ class PythonConverter(implicit ev: TensorNumeric[Float]) extends Customizable[Fl
         (ratios, scales)
       }
       case _ =>
-        throw new Exception("cannot match ratios and scales in proposal layer")
+        val ratios = Array[Float](0.5f, 1.0f, 2.0f)
+        val scales = Array[Float](8, 16, 32)
+        (ratios, scales)
     }
     // for faster rcnn
     Seq(Proposal(preNmsTopN = 6000, postNmsTopN = 300, ratios, scales)

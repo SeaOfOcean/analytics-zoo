@@ -24,6 +24,7 @@ import com.intel.analytics.zoo.pipeline.common.caffe.{CaffeLoader, PipelineCaffe
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import com.intel.analytics.zoo.pipeline.ssd.model.{SSDAlexNet, SSDVgg}
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{Engine, T}
 import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
 import com.intel.analytics.zoo.pipeline.common.nn.Proposal
@@ -77,8 +78,8 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
 
   def compare(name: String, t1: Tensor[Float], t2: Tensor[Float]): Boolean = {
     if (t1.toTensor[Float].nElement() != t2.toTensor[Float].nElement()) {
-      println(s"compare ${ name } fail, ${ t1.toTensor[Float].nElement() } vs" +
-        s" ${ t2.toTensor[Float].nElement() }")
+      println(s"compare ${name} fail, ${t1.toTensor[Float].nElement()} vs" +
+        s" ${t2.toTensor[Float].nElement()}")
       return false
     }
     t1.toTensor[Float].map(t2.toTensor[Float],
@@ -215,7 +216,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     }
     TestUtil.middleRoot = "$home/data/deepbit/1.0"
     val input = TestUtil.loadFeatures("data")
-//    val input = Tensor[Float](1, 3, 227, 227)
+    //    val input = Tensor[Float](1, 3, 227, 227)
     val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
 
     ModuleUtil.shareMemory(model)
@@ -246,6 +247,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
     ModuleUtil.shareMemory(model)
     val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
+    modelWithPostprocess.saveModule("/tmp/vgg.frcnn")
     modelWithPostprocess.forward(input)
 //    println(model.output.toTable.length())
 //    (1 to model.output.toTable.length()).foreach(i => {
@@ -254,7 +256,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     // model.saveGraphTopology("/tmp/summary")
   }
 
-  "pvanet load"  should "work properly" in {
+  "pvanet load" should "work properly" in {
 
     val conf = Engine.createSparkConf().setMaster("local[2]")
       .setAppName("Spark-DL Faster RCNN Test")
@@ -268,7 +270,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     }
     val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
       .asInstanceOf[Graph[Float]]
-//    val model = DLFile.load[Graph[Float]]("/tmp/pvanet.bin")
+    //    val model = DLFile.load[Graph[Float]]("/tmp/pvanet.bin")
     val input = T()
     input.insert(Tensor[Float](1, 3, 640, 960))
     input.insert(Tensor[Float](T(640, 960, 1, 1)).resize(1, 4))
@@ -276,7 +278,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
 //    model.saveModule("/tmp/pvanet.model", true)
     println("save model done")
 
-//    model.saveGraphTopology("/tmp/summary")
+    //    model.saveGraphTopology("/tmp/summary")
     val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
     ModuleUtil.shareMemory(model)
     val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
@@ -286,7 +288,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
 //    model.saveGraphTopology("/tmp/summary")
   }
 
-  "pvanet forward"  should "work properly" in {
+  "pvanet forward" should "work properly" in {
 
     val conf = Engine.createSparkConf().setMaster("local[2]")
       .setAppName("Spark-DL Faster RCNN Test")
@@ -321,5 +323,17 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     val model = Proposal(1, 1, Array[Float](0.1f), Array[Float](1f))
     model.saveModule("/tmp/propsal", true)
     Module.loadModule[Float]("/tmp/propsal")
+  }
+
+  "ev.scale" should "work" in {
+    val array = new Array[Float](1228800)
+    TensorNumeric.NumericFloat.scal(1, 4096, array, 1883279, 1)
+  }
+
+  "cmul" should "not dump" in {
+    val cmul = CMul[Float](Array[Int](1, 4096, 1, 1))
+    cmul.weight.randn()
+    val input = Tensor[Float](300, 4096).randn()
+    cmul.forward(input)
   }
 }

@@ -146,13 +146,15 @@ class LayerConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Convert
 
   override protected def fromCaffeScale(layer: GeneratedMessage): Seq[ModuleNode[T]] = {
     val param = layer.asInstanceOf[LayerParameter].getScaleParam
+    val axis = param.getAxis
     val layerName = getLayerName(layer)
     // second blob as weight for scale
     val weightBlob = getBlob(layer, 1)
     if (weightBlob.isDefined) {
       val blob = weightBlob.get
       val size : Array[Int] = if (blob.getShape.getDimCount == 1) {
-        Array(1, blob.getShape.getDim(0).toInt, 1, 1)
+        if (layerName.startsWith("fc")) Array(1, blob.getShape.getDim(0).toInt)
+        else Array(1, blob.getShape.getDim(0).toInt, 1, 1)
       } else {
         blob.getShape.getDimList.asScala.map(_.toInt).toArray
       }
