@@ -198,8 +198,6 @@ class Proposal(preNmsTopN: Int, postNmsTopN: Int, val ratios: Array[Float],
     gradInput = null
     gradInput
   }
-
-  override def toString: String = "Proposal"
 }
 
 object Proposal {

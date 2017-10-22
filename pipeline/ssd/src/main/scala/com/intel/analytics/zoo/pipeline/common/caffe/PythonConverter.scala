@@ -55,7 +55,13 @@ class PythonConverter(implicit ev: TensorNumeric[Float]) extends Customizable[Fl
         (ratios, scales)
     }
     // for faster rcnn
-    Seq(Proposal(preNmsTopN = 6000, postNmsTopN = 300, ratios, scales)
+    val (preNmsTopN, postNmsTopN) = if (ratios.length == 3) {
+      // vgg
+      (6000, 300)
+    } else {
+      (12000, 200)
+    }
+    Seq(Proposal(preNmsTopN, postNmsTopN, ratios, scales)
       .setName(getLayerName(layer)).inputs())
   }
 }
