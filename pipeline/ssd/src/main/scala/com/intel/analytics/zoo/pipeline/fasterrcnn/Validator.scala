@@ -45,10 +45,10 @@ class Validator(model: Module[Float],
 
 
   ModuleUtil.shareMemory(model)
-  val modelWithPostprocess = Sequential().add(model).add(postprocessor)
+  // val modelWithPostprocess = Sequential().add(model).add(postprocessor)
 
   def test(rdd: RDD[SSDByteRecord]): Unit = {
-    Validator.test(rdd, modelWithPostprocess, preProcessor, evaluator)
+    Validator.test(rdd, model, preProcessor, evaluator)
   }
 }
 

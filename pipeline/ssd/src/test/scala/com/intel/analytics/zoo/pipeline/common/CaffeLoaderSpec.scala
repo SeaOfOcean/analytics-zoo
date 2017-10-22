@@ -262,13 +262,13 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
       .setAppName("Spark-DL Faster RCNN Test")
     val sc = new SparkContext(conf)
     Engine.init
-    val prototxt = s"$home/data/caffeModels/pvanet/faster_rcnn_train_test_21cls.pt"
+    val prototxt = s"$home/data/caffeModels/pvanet/test.prototxt"
     val caffemodel = s"$home/data/caffeModels/pvanet/PVA9.1_ImgNet_COCO_VOC0712.caffemodel"
 
     if (!new File(prototxt).exists()) {
       cancel("local test")
     }
-    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel)
+    val model = PipelineCaffeLoader.loadCaffe(prototxt, caffemodel, Array("proposal", "im_info"))
       .asInstanceOf[Graph[Float]]
     //    val model = DLFile.load[Graph[Float]]("/tmp/pvanet.bin")
     val input = T()
@@ -279,7 +279,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     println("save model done")
 
     //    model.saveGraphTopology("/tmp/summary")
-    val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
+    val postprocessor = Postprocessor(PostProcessParam(0.4f, 21, true, 100, 0.05))
     ModuleUtil.shareMemory(model)
     val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
 
@@ -304,6 +304,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     input.insert(Tensor[Float](1, 3, 640, 960))
     input.insert(Tensor[Float](T(640, 960, 1, 1)).resize(1, 4))
     val modelWithPostprocess = Module.loadModule[Float]("/tmp/pvanet.model")
+    modelWithPostprocess.evaluate()
     println("load done !")
     modelWithPostprocess.forward(input)
 //    model.saveGraphTopology("/tmp/summary")

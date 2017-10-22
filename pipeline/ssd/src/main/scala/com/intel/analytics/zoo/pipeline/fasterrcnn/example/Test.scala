@@ -114,8 +114,8 @@ object Test {
       }
 
       val validator = new Validator(model, preParam, postParam, evaluator)
-
       validator.test(rdd._1)
+      sc.stop()
     }
   }
 }

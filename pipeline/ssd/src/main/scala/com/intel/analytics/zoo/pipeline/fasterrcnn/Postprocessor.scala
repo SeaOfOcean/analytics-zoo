@@ -232,10 +232,14 @@ class Postprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
     val rois = input[Tensor[Float]](2)
     val boxDeltas = input[Tensor[Float]](3)
     val scores = input[Tensor[Float]](4)
-    println(input.toTable.length())
-    (1 to input.length()).foreach(i => {
-      println(input.toTable[Tensor[Float]](i).size().mkString("x"))
-    })
+    require(imInfo.dim() == 2 && imInfo.size(1) == 1 && imInfo.size(2) == 4,
+      s"imInfo should be a 1x4 tensor, while actual is ${imInfo.size().mkString("x")}")
+    require(rois.size(2) == 5,
+      s"rois is a Nx5 tensor, while actual is ${rois.size().mkString("x")}")
+    require(boxDeltas.size(2) == nClasses * 4,
+      s"boxDeltas is a Nx(nClasses * 4) tensor, while actual is ${boxDeltas.size().mkString("x")}")
+    require(scores.size(2) == nClasses,
+      s"scores is a NxnClasses tensor, while actual is ${scores.size().mkString("x")}")
     output = resultToTensor(process(scores, boxDeltas, rois, imInfo))
     output
   }
