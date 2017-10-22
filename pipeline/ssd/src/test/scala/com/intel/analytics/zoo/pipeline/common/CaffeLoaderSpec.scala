@@ -307,6 +307,24 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     println("load done !")
     TestUtil.middleRoot = s"$home/data/middle/pvanew/"
     modelWithPostprocess.forward(input)
+    def assertEqual(name: String): Unit = {
+      TestUtil.assertEqual(name, modelWithPostprocess(name).get.output.toTensor[Float], 1e-4)
+    }
+    def assertEqual2(name: String, name2: String): Unit = {
+      TestUtil.assertEqual(name, modelWithPostprocess(name2).get.output.toTensor[Float], 1e-4)
+    }
+    assertEqual2("conv1_1_conv", "conv1_1/bn")
+    assertEqual("pool1")
+    assertEqual2("conv2_1_proj", "conv2_1/proj")
+    assertEqual2("conv2_1_3", "conv2_1/3/conv")
+    assertEqual("conv2_1")
+    assertEqual("conv3_4")
+    assertEqual("conv4_4")
+    assertEqual("concat")
+    assertEqual("upsample")
+    assertEqual("downsample")
+    assertEqual("roi_pool_conv5")
+    assertEqual2("rois", "proposal")
     TestUtil.assertEqual("cls_prob", modelWithPostprocess("cls_prob").get.output.toTensor[Float], 1e-5)
     TestUtil.assertEqual("bbox_pred", modelWithPostprocess("bbox_pred").get.output.toTensor[Float], 1e-5)
 //    model.saveGraphTopology("/tmp/summary")

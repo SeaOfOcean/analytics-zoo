@@ -271,12 +271,12 @@ abstract class Converter[T: ClassTag](implicit ev: TensorNumeric[T]) {
     val param = getEltWiseParam(layer).get
     val layerName = getLayerName(layer)
     val opsType = param.getOperation
-    val coeff2 = param.getCoeff(1)
     val ops = opsType match {
       case EltwiseOp.PROD => CMulTable[T]().setName(layerName).inputs()
       case EltwiseOp.MAX => CMaxTable[T]().setName(layerName).inputs()
       case EltwiseOp.SUM =>
-        if (coeff2 < 0) {
+        val coeff2 = param.getCoeff(1)
+        if (coeff2 > 0) {
           CAddTable[T]().setName(layerName).inputs()
         } else {
           CSubTable[T]().setName(layerName).inputs()
