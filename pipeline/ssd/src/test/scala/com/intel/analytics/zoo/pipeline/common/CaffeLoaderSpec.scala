@@ -289,7 +289,6 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
   }
 
   "pvanet forward" should "work properly" in {
-
     val conf = Engine.createSparkConf().setMaster("local[2]")
       .setAppName("Spark-DL Faster RCNN Test")
     val sc = new SparkContext(conf)
@@ -301,12 +300,15 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
       cancel("local test")
     }
     val input = T()
-    input.insert(Tensor[Float](1, 3, 640, 960))
-    input.insert(Tensor[Float](T(640, 960, 1, 1)).resize(1, 4))
+    input.insert(TestUtil.loadFeaturesFullPath(s"$home/data/middle/pvanew/data-1_3_640_960.txt"))
+    input.insert(Tensor[Float](T(640, 960, 1.9199999, 1.9199999)).resize(1, 4))
     val modelWithPostprocess = Module.loadModule[Float]("/tmp/pvanet.model")
     modelWithPostprocess.evaluate()
     println("load done !")
+    TestUtil.middleRoot = s"$home/data/middle/pvanew/"
     modelWithPostprocess.forward(input)
+    TestUtil.assertEqual("cls_prob", modelWithPostprocess("cls_prob").get.output.toTensor[Float], 1e-5)
+    TestUtil.assertEqual("bbox_pred", modelWithPostprocess("bbox_pred").get.output.toTensor[Float], 1e-5)
 //    model.saveGraphTopology("/tmp/summary")
   }
 
