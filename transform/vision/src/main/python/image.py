@@ -139,8 +139,8 @@ class Crop(FeatureTransformer):
 
 class ChannelNormalize(FeatureTransformer):
 
-    def __init__(self, mean_r, mean_b, mean_g, bigdl_type="float"):
-        super(ChannelNormalize, self).__init__(bigdl_type, mean_r, mean_g, mean_b)
+    def __init__(self, mean_r, mean_b, mean_g, std_r, std_g, std_b, bigdl_type="float"):
+        super(ChannelNormalize, self).__init__(bigdl_type, mean_r, mean_g, mean_b, std_r, std_g, std_b)
 
 
 class RandomCrop(FeatureTransformer):

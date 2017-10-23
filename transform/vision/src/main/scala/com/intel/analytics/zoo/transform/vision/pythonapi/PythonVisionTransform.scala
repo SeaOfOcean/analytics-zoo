@@ -124,8 +124,10 @@ class PythonVisionTransform[T: ClassTag](implicit ev: TensorNumeric[T]) extends 
     RandomSampler()
   }
 
-  def createChannelNormalize(meanR: Int, meanG: Int, meanB: Int): FeatureTransformer = {
-    ChannelNormalize((meanR, meanG, meanB))
+  def createChannelNormalize(meanR: Double, meanG: Double, meanB: Double,
+    stdR: Double = 1, stdG: Double = 1, stdB: Double = 1): FeatureTransformer = {
+    ChannelNormalize((meanR.toFloat, meanG.toFloat, meanB.toFloat),
+      stdR.toFloat, stdG.toFloat, stdB.toFloat)
   }
 
   def createRoiCrop(): RoiCrop = {
