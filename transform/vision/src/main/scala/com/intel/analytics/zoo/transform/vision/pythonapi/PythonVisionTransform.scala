@@ -223,10 +223,6 @@ class PythonVisionTransform[T: ClassTag](implicit ev: TensorNumeric[T]) extends 
     Sample(features, label, "float")
   }
 
-  def imageFeatureGet(imageFeature: ImageFeature, key: String): Any = {
-    imageFeature(key)
-  }
-
   def imageFeatureGetKeys(imageFeature: ImageFeature): JList[String] = {
     imageFeature.keys().toList.asJava
   }
