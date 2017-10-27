@@ -38,9 +38,9 @@ class ChannelNormalize(meanR: Float, meanG: Float, meanB: Float,
 }
 
 object ChannelNormalize {
-  def apply(mean: (Float, Float, Float),
+  def apply(meanR: Float, meanG: Float, meanB: Float,
             stdR: Float = 1, stdG: Float = 1, stdB: Float = 1): ChannelNormalize = {
-    new ChannelNormalize(mean._1, mean._2, mean._3, stdR, stdG, stdB)
+    new ChannelNormalize(meanR, meanG, meanB, stdR, stdG, stdB)
   }
 
   def transform(input: OpenCVMat, output: OpenCVMat,
