@@ -26,7 +26,8 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericF
 import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
 import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnCriterion, FrcnnMiniBatch}
+import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
+import com.intel.analytics.zoo.pipeline.fasterrcnn.FrcnnMiniBatch
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{VggFRcnn, _}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext

@@ -14,7 +14,7 @@
  *  limitations under the License.
  */
 
-package com.intel.analytics.zoo.pipeline.fasterrcnn
+package com.intel.analytics.zoo.pipeline.common.nn
 
 import com.intel.analytics.bigdl.nn.abstractnn.AbstractCriterion
 import com.intel.analytics.bigdl.nn.{ParallelCriterion, SmoothL1CriterionWithWeights, SoftmaxWithCriterion}
@@ -22,8 +22,8 @@ import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{T, Table}
+import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion._
 import org.apache.log4j.Logger
-import FrcnnCriterion._
 
 object FrcnnCriterion {
   val logger = Logger.getLogger(getClass)

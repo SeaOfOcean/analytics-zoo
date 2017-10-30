@@ -14,14 +14,14 @@
  *  limitations under the License.
  */
 
-package com.intel.analytics.zoo.pipeline.fasterrcnn
+package com.intel.analytics.zoo.pipeline.common.nn
 
 import com.intel.analytics.bigdl.nn.abstractnn.AbstractModule
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
-import com.intel.analytics.zoo.pipeline.fasterrcnn.AnchorTarget.logger
+import com.intel.analytics.zoo.pipeline.fasterrcnn.FrcnnMiniBatch
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnnParam
 import org.apache.log4j.Logger
 

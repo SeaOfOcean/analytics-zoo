@@ -27,8 +27,7 @@ import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{Engine, T}
 import com.intel.analytics.bigdl.utils.RandomGenerator.RNG
-import com.intel.analytics.zoo.pipeline.common.nn.Proposal
-import com.intel.analytics.zoo.pipeline.fasterrcnn.Postprocessor
+import com.intel.analytics.zoo.pipeline.common.nn.{FrcnnPostprocessor, Proposal}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.PostProcessParam
 import org.apache.spark.SparkContext
 import org.scalatest.{FlatSpec, Matchers}
@@ -244,7 +243,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     input.insert(Tensor[Float](1, 3, 60, 90))
     input.insert(Tensor[Float](T(60, 90, 1, 1)).resize(1, 4))
 
-    val postprocessor = Postprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
+    val postprocessor = FrcnnPostprocessor(PostProcessParam(0.3f, 21, false, 100, 0.05))
     ModuleUtil.shareMemory(model)
     val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
     modelWithPostprocess.saveModule("/tmp/vgg.frcnn")
@@ -279,7 +278,7 @@ class CaffeLoaderSpec extends FlatSpec with Matchers {
     println("save model done")
 
     //    model.saveGraphTopology("/tmp/summary")
-    val postprocessor = Postprocessor(PostProcessParam(0.4f, 21, true, 100, 0.05))
+    val postprocessor = FrcnnPostprocessor(PostProcessParam(0.4f, 21, true, 100, 0.05))
     ModuleUtil.shareMemory(model)
     val modelWithPostprocess = Sequential[Float]().add(model).add(postprocessor)
 

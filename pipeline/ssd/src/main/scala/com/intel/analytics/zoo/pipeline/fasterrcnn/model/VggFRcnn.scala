@@ -19,8 +19,8 @@ import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.zoo.pipeline.common.nn.Proposal
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{AnchorTarget, Postprocessor, ProposalTarget, RoiPooling => RoiPoolingFrcnn}
+import com.intel.analytics.zoo.pipeline.common.nn.{AnchorTarget, FrcnnPostprocessor, Proposal, ProposalTarget}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{ProposalTarget, RoiPooling => RoiPoolingFrcnn}
 import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
 object VggFRcnn {
 
@@ -111,7 +111,7 @@ object VggFRcnn {
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
       .inputs(rpn_cls_score, gt, imInfo, data)
 
-    val detectionOut = Postprocessor(postProcessParam).inputs(
+    val detectionOut = FrcnnPostprocessor(postProcessParam).inputs(
       cls_prob, bbox_pred, roi_data, imInfo,
       rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
     val model = Graph(Array(data, imInfo, gt), detectionOut)

@@ -5,6 +5,7 @@ import breeze.numerics._
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
+import com.intel.analytics.zoo.pipeline.common.nn.ProposalTarget
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.VggParam
 import org.scalatest.FlatSpec
 
