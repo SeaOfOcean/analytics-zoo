@@ -12,15 +12,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package com.intel.analytics.zoo.pipeline.ssd.example
 
 import com.intel.analytics.bigdl.nn.Module
-import com.intel.analytics.bigdl.pipeline.ssd.IOUtils
-import com.intel.analytics.zoo.pipeline.common.BboxUtil
-import com.intel.analytics.zoo.pipeline.common.caffe.SSDCaffeLoader
+import com.intel.analytics.zoo.pipeline.common.IOUtils
+import com.intel.analytics.zoo.pipeline.common.{BboxUtil}
+import com.intel.analytics.zoo.pipeline.common.caffe.PipelineCaffeLoader
 import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.Visualizer
 import com.intel.analytics.zoo.pipeline.ssd._
 import com.intel.analytics.bigdl.tensor.Tensor
@@ -128,7 +127,7 @@ object Predict {
         Module.load[Float](params.model.get)
       } else if (params.caffeDefPath.isDefined && params.caffeModelPath.isDefined) {
         // load caffe dynamically
-        SSDCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
+        PipelineCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
       } else {
         throw new IllegalArgumentException(s"currently only support" +
           s" loading BigDL model or caffe model")

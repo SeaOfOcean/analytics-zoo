@@ -21,6 +21,7 @@ import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
+import com.intel.analytics.zoo.pipeline.fasterrcnn.Anchor
 
 /**
  * Outputs object detection proposals by applying estimated bounding-box
@@ -54,6 +55,7 @@ class Proposal(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Array[Floa
       sortedScores = Tensor[Float]
       sortedInds = Tensor[Float]
       filteredProposals = Tensor[Float]
+//      rpnRois = Tensor[Float]
     }
   }
 
@@ -133,7 +135,6 @@ class Proposal(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Array[Floa
 
     var i = 1
     var j = 2
-
     output.resize(keepN, filteredProposals.size(2) + 1)
     while (i <= keepN) {
       output.setValue(i, 1, 0)
@@ -144,6 +145,11 @@ class Proposal(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Array[Floa
       }
       i += 1
     }
+//    if (output.length == 0) {
+//      output.insert(rpnRois)
+//    } else {
+//      output.update(1, rpnRois)
+//    }
     output
   }
 

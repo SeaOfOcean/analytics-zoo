@@ -4,7 +4,7 @@
 SPARK_HOME=$HOME/spark-2.1.0-bin-hadoop2.7/
 SSD_HOME=$HOME/code/analytics-zoo/pipeline/ssd
 BigDL_HOME=$HOME/BigDL
-MASTER="local[2]"
+MASTER="local[4]"
 
 PYTHON_API_ZIP_PATH=${BigDL_HOME}/lib/bigdl-0.3.0-SNAPSHOT-python-api.zip
 SSD_JAR_PATH=${SSD_HOME}/target/pipeline-0.1-SNAPSHOT-jar-with-dependencies.jar
@@ -17,8 +17,8 @@ ${SPARK_HOME}/bin/pyspark \
     --master ${MASTER} \
     --driver-cores 1  \
     --driver-memory 10g  \
-    --total-executor-cores 3  \
-    --executor-cores 1  \
+    --total-executor-cores 4  \
+    --executor-cores 2  \
     --executor-memory 20g \
     --py-files ${PYTHON_API_ZIP_PATH} \
     --properties-file ${BigDL_HOME}/conf/spark-bigdl.conf \

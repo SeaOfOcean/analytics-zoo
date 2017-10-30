@@ -18,8 +18,8 @@ package com.intel.analytics.zoo.pipeline.common.caffe
 
 import com.google.protobuf.GeneratedMessage
 import com.intel.analytics.bigdl.nn.Graph._
-import com.intel.analytics.bigdl.nn.RoiPooling
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{RoiPooling => RoiPoolingFrcnn}
 import pipeline.caffe.Caffe.LayerParameter
 
 import scala.reflect.ClassTag
@@ -31,7 +31,7 @@ class RoiPoolingConverter[T: ClassTag](implicit ev: TensorNumeric[T]) extends Cu
     val poolH = param.getPooledH
     val poolW = param.getPooledW
     val scale = param.getSpatialScale
-    Seq(RoiPooling[T](poolW, poolH, ev.fromType(scale)).setName(getLayerName(layer)).inputs())
+    Seq(RoiPoolingFrcnn[T](poolW, poolH, ev.fromType(scale)).setName(getLayerName(layer)).inputs())
   }
 
 }

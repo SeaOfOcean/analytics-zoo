@@ -24,8 +24,7 @@ import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
-import com.intel.analytics.bigdl.utils.{Table}
-import com.intel.analytics.zoo.pipeline.common.nn.{FrcnnPostprocessor, Proposal}
+import com.intel.analytics.bigdl.utils.{File, Table}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
@@ -313,9 +312,8 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
     loadCaffe(prototxtPath, modelPath)
     registerCustomizedConverter()
     val layers = createLayers()
-    // some data input is not used, e.g. label
-    val inputs = layers.filter(layer => layer.prevNodes.isEmpty && layer.nextNodes.nonEmpty).toArray
-    val outputs = layers.filter(layer => layer.nextNodes.isEmpty && layer.prevNodes.nonEmpty ||
+    val inputs = layers.filter(layer => layer.prevNodes.size == 0).toArray
+    val outputs = layers.filter(layer => layer.nextNodes.size == 0 ||
       outputNames.contains(layer.element.getName())).toArray
     val module = Graph(inputs, outputs)
     module.setName(netparam.getName)
@@ -353,6 +351,22 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
   }
 
   private def addInputList(inputs: Seq[ModuleNode[T]],
+    layers: ArrayBuffer[ModuleNode[T]],
+    top2LayerMap: mutable.HashMap[String, String],
+    layersMap: mutable.HashMap[String, ModuleNode[T]]): Boolean = {
+    if (null != inputs) {
+      inputs.foreach(input => {
+        top2LayerMap(input.element.getName()) = input.element.getName()
+        layersMap(input.element.getName()) = input
+        layers.append(input)
+      })
+      true
+    } else {
+      false
+    }
+  }
+
+  private def tryAddInputList(inputs: Seq[ModuleNode[T]],
     layers: ArrayBuffer[ModuleNode[T]],
     top2LayerMap: mutable.HashMap[String, String],
     layersMap: mutable.HashMap[String, ModuleNode[T]]): Boolean = {
@@ -440,20 +454,23 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
         if (!isCriterionLayerOnly && !isInput) {
           val nodes = convertCaffeLayer(layer)
           if (nodes != null) {
-            var curr = nodes.head
-            bottomList.foreach(dependency => {
-              if (top2LayerMap.contains(dependency)) {
-                layersMap(top2LayerMap(dependency)) -> curr
+            nodes.foreach(node => {
+              val name = node.element.getName()
+              var curr = node
+              bottomList.foreach(dependency => {
+                if (top2LayerMap.contains(dependency)) {
+                  layersMap(top2LayerMap(dependency)) -> curr
+                }
+              })
+              while (curr.nextNodes.nonEmpty) {
+                layers.append(curr)
+                curr = curr.nextNodes(0)
               }
-            })
-            while (curr.nextNodes.nonEmpty) {
               layers.append(curr)
-              curr = curr.nextNodes.head
-            }
-            layers.append(curr)
-            layersMap(name) = curr
-            topList.foreach(output => {
-              top2LayerMap(output) = name
+              layersMap(name) = curr
+              topList.foreach(output => {
+                top2LayerMap(output) = name
+              })
             })
           }
         }
@@ -522,9 +539,9 @@ class CaffeLoader[T: ClassTag](prototxtPath: String, modelPath: String,
     val param = getInforgainParam(layerName).get
     val weightBlob = getBlob(layerName, 2)
     if (weightBlob.isDefined) {
-      val size = weightBlob.get.getShape.getDimList.asScala.map(_.toInt).toArray
+      val size = weightBlob.get.getShape.getDimList.toArray.asInstanceOf[Array[Int]]
       val weightData = weightBlob.get.getDataList
-      val weightArr = new Array[T](weightData.size)
+      var weightArr = new Array[T](weightData.size)
       var i = 0
       while (i < weightData.size) {
         weightArr(i) = ev.fromType[Float](weightData.get(i))
@@ -585,33 +602,15 @@ object CaffeLoader {
   }
 }
 
-object SSDCaffeLoader {
+object PipelineCaffeLoader {
 
   val customized = new mutable.HashMap[String, Customizable[Float]]()
   customized.put("PRIORBOX", new PriorBoxConvertor[Float]())
+  customized.put("PYTHON", new PythonConverter())
+  customized.put("ROIPOOLING", new RoiPoolingConverter[Float]())
 
   def loadCaffe(defPath: String, modelPath: String,
     outputs: Array[String] = Array[String]()): Module[Float] = {
     CaffeLoader.loadCaffe[Float](defPath, modelPath, customized, outputs)._1
-  }
-}
-
-object FrcnnCaffeLoader {
-
-  val customized = new mutable.HashMap[String, Customizable[Float]]()
-  customized.put("PYTHON", new PythonConverter())
-  customized.put("ROIPOOLING", new RoiPoolingConverter[Float]())
-  val outputs = Array("proposal", "im_info")
-
-  def loadCaffe(defPath: String, modelPath: String): Module[Float] = {
-    val model = CaffeLoader.loadCaffe[Float](defPath, modelPath, customized, outputs)._1
-    val proposal = model("proposal").get.asInstanceOf[Proposal]
-    val postprocessor = if (proposal.scales.length == 3) {
-      // vgg
-      FrcnnPostprocessor(0.3f, 21, false, 100, 0.05)
-    } else {
-      FrcnnPostprocessor(0.4f, 21, true, 100, 0.05)
-    }
-    Sequential[Float]().add(model).add(postprocessor)
   }
 }
