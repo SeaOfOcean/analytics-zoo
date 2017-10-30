@@ -59,15 +59,14 @@ case class RoiCrop() extends FeatureTransformer {
   }
 }
 
-case class RoiHFlip(normalized: Boolean = true) extends FeatureTransformer {
+case class RoiHFlip() extends FeatureTransformer {
   override def transformMat(feature: ImageFeature): Unit = {
     require(feature.hasLabel())
     val roiLabel = feature.getLabel[RoiLabel]
     var i = 1
-    val width = if (normalized) 1 else feature.getWidth()
     while (roiLabel.bboxes.nElement() > 0 && i <= roiLabel.bboxes.size(1)) {
-      val x1 = width - roiLabel.bboxes.valueAt(i, 1)
-      roiLabel.bboxes.setValue(i, 1, width - roiLabel.bboxes.valueAt(i, 3))
+      val x1 = 1 - roiLabel.bboxes.valueAt(i, 1)
+      roiLabel.bboxes.setValue(i, 1, 1 - roiLabel.bboxes.valueAt(i, 3))
       roiLabel.bboxes.setValue(i, 3, x1)
       i += 1
     }
