@@ -20,7 +20,6 @@ import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.nn.{AnchorTarget, FrcnnPostprocessor, Proposal, ProposalTarget}
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{ProposalTarget, RoiPooling => RoiPoolingFrcnn}
 import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
 object VggFRcnn {
 
@@ -95,7 +94,7 @@ object VggFRcnn {
     val roi = SelectTable(1).setName("roi").inputs(roi_data)
     // val (clsProb, bboxPred) = fastRcnn(vgg, rpnNet)
     val pool = 7
-    val roiPooling = RoiPoolingFrcnn(pool, pool, 0.0625f).setName("pool5").inputs(vgg, roi)
+    val roiPooling = RoiPooling(pool, pool, 0.0625f).setName("pool5").inputs(vgg, roi)
     val reshape = InferReshape(Array(-1, 512 * pool * pool)).inputs(roiPooling)
     val fc6 = Linear(512 * pool * pool, 4096).setName("fc6").inputs(reshape)
     val reLU6 = ReLU().inputs(fc6)
@@ -111,7 +110,8 @@ object VggFRcnn {
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
       .inputs(rpn_cls_score, gt, imInfo, data)
 
-    val detectionOut = FrcnnPostprocessor(postProcessParam).inputs(
+    val detectionOut = FrcnnPostprocessor(postProcessParam.nmsThresh, postProcessParam.nClasses,
+      postProcessParam.bboxVote, postProcessParam.maxPerImage, postProcessParam.thresh).inputs(
       cls_prob, bbox_pred, roi_data, imInfo,
       rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
     val model = Graph(Array(data, imInfo, gt), detectionOut)

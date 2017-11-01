@@ -73,7 +73,7 @@ class DataAugmentationSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val roidb = voc.getRoidb().toIterator
     val imgAug = LocalByteRoiimageReader() -> RecordToFeature(true) ->
       BytesToMat() ->
-      RandomResize(Array(400, 500, 600, 700), 1) ->
+      RandomAspectScale(Array(400, 500, 600, 700), 1) ->
       RoiResize() ->
       RandomTransformer(HFlip() -> RoiHFlip(false), 0.5) ->
       MatToFloats(validHeight = 300, validWidth = 300) //, meanRGB = Some(123f, 117f, 104f)
