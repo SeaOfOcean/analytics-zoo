@@ -78,7 +78,7 @@ object VggFRcnn {
     val relu3x3 = ReLU(true).setName("rpn_relu/3x3").inputs(rpn_conv_3x3)
     val rpn_cls_score = SpatialConvolution(512, 18, 1, 1, 1, 1)
       .setName("rpn_cls_score").inputs(relu3x3)
-    val rpn_cls_score_reshape = InferReshape(Array(0, 2, -1, 0)).inputs(rpn_cls_score)
+    val rpn_cls_score_reshape = InferReshape(Array(0, 2, -1, 0)).setName("rpn_cls_score_reshape").inputs(rpn_cls_score)
     val rpn_cls_prob = SoftMax().setName("rpn_cls_prob").inputs(rpn_cls_score_reshape)
     val rpn_cls_prob_reshape = InferReshape(Array(1, 2 * param.anchorNum, -1, 0))
       .setName("rpn_cls_prob_reshape").inputs(rpn_cls_prob)
@@ -95,7 +95,7 @@ object VggFRcnn {
     // val (clsProb, bboxPred) = fastRcnn(vgg, rpnNet)
     val pool = 7
     val roiPooling = RoiPooling(pool, pool, 0.0625f).setName("pool5").inputs(vgg, roi)
-    val reshape = InferReshape(Array(-1, 512 * pool * pool)).inputs(roiPooling)
+    val reshape = InferReshape(Array(-1, 512 * pool * pool)).setName("pool5_reshape").inputs(roiPooling)
     val fc6 = Linear(512 * pool * pool, 4096).setName("fc6").inputs(reshape)
     val reLU6 = ReLU().inputs(fc6)
     val dropout6 = Dropout().setName("drop6").inputs(reLU6)

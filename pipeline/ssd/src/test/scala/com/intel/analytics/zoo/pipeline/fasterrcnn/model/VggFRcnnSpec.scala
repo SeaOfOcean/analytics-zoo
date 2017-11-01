@@ -17,9 +17,10 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
 import com.intel.analytics.bigdl.nn._
-import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.bigdl.numeric.NumericFloat
+import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
 import org.scalatest.{FlatSpec, Matchers}
 
 class VggFRcnnSpec extends FlatSpec with Matchers {
@@ -71,5 +72,23 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     val frcnnGraph = VggFRcnn(21,
       PostProcessParam(0.3f, 21, false, -1, 0))
     frcnnGraph.saveModule("/tmp/frcnn.model", true)
+  }
+
+  "forward backward" should "work" in {
+    val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
+      .map(_.toFloat))).resize(1, 7)
+    val frcnn  = VggFRcnn(21, PostProcessParam(0.3f, 21, false, -1, 0))
+    val criterion = FrcnnCriterion()
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 600, 800))
+    input.insert(Tensor[Float](T(600, 800, 1, 1)).resize(1, 4))
+    input.insert(target)
+
+    frcnn.forward(input)
+    criterion.forward(frcnn.output.toTable, target)
+    criterion.backward(frcnn.output.toTable, target)
+
+    frcnn.backward(input, criterion.gradInput)
+
   }
 }
