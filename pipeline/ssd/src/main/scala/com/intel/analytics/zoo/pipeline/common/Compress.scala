@@ -53,8 +53,8 @@ object Compress {
     val array = doubleWeight.toMLlibMatrix().rowIter.toArray
     val rows = sc.parallelize(array)
     logger.info(s"start computing svd for weight ${weight.size().mkString("x")}.. with s ${l}")
-    val dim = Math.min(weight.size(1), weight.size(2))
-    val svd = new RowMatrix(rows).computeSVD(dim, true)
+//    val dim = Math.min(weight.size(1), weight.size(2))
+    val svd = new RowMatrix(rows).computeSVD(l, true)
     logger.info("compute svd done ..")
     // Create the inv diagonal matrix from S
     val invS = DenseMatrix.diag(svd.s)
@@ -62,9 +62,9 @@ object Compress {
       .resize(svd.U.numRows().toInt, svd.U.numCols().toInt)
     val L = svd.V match {
       case dense: org.apache.spark.mllib.linalg.DenseMatrix =>
-        invS.multiply(dense)
+        invS.multiply(dense.transpose)
       case sparse: org.apache.spark.mllib.linalg.SparseMatrix =>
-        invS.multiply(sparse.toDense)
+        invS.multiply(sparse.toDense.transpose)
     }
     // data type from svd is Double, need to convert to Float if T == Float
     val (tu, tl) = if (classTag[T] == classTag[Float]) {
@@ -72,6 +72,9 @@ object Compress {
     } else {
       (U, Tensor(L))
     }
+
+    logger.info(s"compress linear  weight from ${weight.size().mkString("x")} with l $l to" +
+      s" ${tu.size().mkString("x")} and ${tl.size().mkString("x")}")
     (tu.asInstanceOf[Tensor[T]], tl.asInstanceOf[Tensor[T]])
   }
 
@@ -130,9 +133,6 @@ object Compress {
     linearL.weight.copy(lL)
     linearU.weight.copy(ul)
     linearU.bias.copy(linear.bias)
-    logger.info(s"compress linear ${linear.getName()}," +
-      s" weight from ${linear.weight.size().mkString("x")} to" +
-      s" ${linearL.weight.size().mkString("x")} and ${linearU.weight.size().mkString("x")}")
     Sequential[T].add(linearL).add(linearU)
   }
 
@@ -231,6 +231,7 @@ object Compress {
       Engine.init
       val linears = params.params.split("\\s").grouped(2).map(x => (x(0), x(1).toInt)).toMap
       val model = Module.loadModule[Float](params.model)
+      logger.info(s"load model ${model.getName()} done ...")
       val compressed = Compress.compress[Float](model, linears, sc)
       compressed.saveModule(params.output, true)
     }

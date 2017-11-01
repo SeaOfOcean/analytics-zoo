@@ -77,7 +77,7 @@ class CompressSpec extends FlatSpec with Matchers {
     Engine.init
     val input = Tensor[Double](4096, 84).randn()
     val start = System.nanoTime()
-    val out = Compress.compressWeight2(sc, input, 1024)
+    val out = Compress.compressWeight(sc, input, 20)
     println(s" takes ${(System.nanoTime() - start) / 1e9} s")
   }
 
