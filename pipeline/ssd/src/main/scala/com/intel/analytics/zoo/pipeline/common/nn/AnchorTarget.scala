@@ -27,6 +27,7 @@ import org.apache.log4j.Logger
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import AnchorTarget.logger
 
 
 object AnchorTarget {
@@ -42,6 +43,7 @@ class AnchorTarget(param: FasterRcnnParam)
 
   /**
    * Compute bounding-box regression targets for an image.
+   *
    * @return
    */
   def computeTargets(exRois: Tensor[Float], gtBoxes: Tensor[Float],
@@ -295,6 +297,7 @@ class AnchorTarget(param: FasterRcnnParam)
   /**
    * Computes the output using the current parameter set of the class and input. This function
    * returns the result which is stored in the output field.
+   *
    * @param input
    * @return
    */
@@ -311,6 +314,7 @@ class AnchorTarget(param: FasterRcnnParam)
   /**
    * Computing the gradient of the module with respect to its own input. This is returned in
    * gradInput. Also, the gradInput state variable is updated accordingly.
+   *
    * @param input
    * @param gradOutput
    * @return
