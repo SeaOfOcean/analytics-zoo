@@ -15,11 +15,12 @@
  */
 
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
+import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.nn.Graph.{apply => _, _}
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.zoo.pipeline.common.nn.{AnchorTarget, FrcnnPostprocessor, Proposal, ProposalTarget}
+import com.intel.analytics.zoo.pipeline.common.nn._
 import com.intel.analytics.zoo.pipeline.ssd.model.SSDGraph.{apply => _}
 object VggFRcnn {
 
@@ -103,7 +104,7 @@ object VggFRcnn {
     val reLU7 = ReLU().inputs(fc7)
     val dropout7 = Dropout().setName("drop7").inputs(reLU7)
     val cls_score = Linear(4096, 21).setName("cls_score").inputs(dropout7)
-    val cls_prob = SoftMax().setName("cls_prob").inputs(cls_score)
+    val cls_prob = EvaluateOnly(SoftMax().setName("cls_prob")).inputs(cls_score)
     val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
 
     // Training part
