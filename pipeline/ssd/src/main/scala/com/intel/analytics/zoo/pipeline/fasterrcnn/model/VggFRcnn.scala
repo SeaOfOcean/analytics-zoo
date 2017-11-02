@@ -63,8 +63,8 @@ object VggFRcnn {
     relu5_3
   }
 
-  val rpnPreNmsTopN = 6000
-  val rpnPostNmsTopN = 300
+  val rpnPreNmsTopNTest = 6000
+  val rpnPostNmsTopNTest = 300
 
   def apply(nClass: Int, postProcessParam: PostProcessParam): Module[Float] = {
     val param = VggParam()
@@ -85,8 +85,8 @@ object VggFRcnn {
       .setName("rpn_cls_prob_reshape").inputs(rpn_cls_prob)
     val rpn_bbox_pred = SpatialConvolution(512, 36, 1, 1, 1, 1).setName("rpn_bbox_pred")
       .inputs(relu3x3)
-    val proposal = Proposal(preNmsTopN = rpnPreNmsTopN,
-      postNmsTopN = rpnPostNmsTopN, param.ratios, param.scales).setName("proposal")
+    val proposal = Proposal(rpnPreNmsTopNTest, rpnPostNmsTopNTest,
+      param.ratios, param.scales).setName("proposal")
       .inputs(rpn_cls_prob_reshape, rpn_bbox_pred, imInfo)
 
 

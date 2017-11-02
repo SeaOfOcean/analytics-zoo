@@ -21,6 +21,7 @@ import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
+import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import org.scalatest.{FlatSpec, Matchers}
 
 class VggFRcnnSpec extends FlatSpec with Matchers {
@@ -77,7 +78,7 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
   "forward backward" should "work" in {
     val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
       .map(_.toFloat))).resize(1, 7)
-    val frcnn  = VggFRcnn(21, PostProcessParam(0.3f, 21, false, -1, 0))
+    val frcnn = VggFRcnn(21, PostProcessParam(0.3f, 21, false, -1, 0))
     val criterion = FrcnnCriterion()
     val input = T()
     input.insert(Tensor[Float](1, 3, 600, 800))
@@ -90,5 +91,47 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
 
     frcnn.backward(input, criterion.gradInput)
 
+  }
+
+  "forward backward" should "work properly" in {
+    TestUtil.middleRoot = "/home/jxy/data/middle/vgg16/new"
+    val target = Tensor(Storage(Array(
+      0, 14, 0,
+      2.702702636718750000e+02,
+      1.573573608398437500e+02,
+      3.495495605468750000e+02,
+      2.654654541015625000e+02,
+      0, 15, 0,
+      2.726726684570312500e+02,
+      1.273273239135742188e+02,
+      3.375375366210937500e+02,
+      2.234234161376953125e+02,
+      0, 15, 1,
+      5.285285186767578125e+01,
+      3.339339294433593750e+02,
+      7.687687683105468750e+01,
+      3.915915832519531250e+02)
+      .map(_.toFloat))).resize(3, 7)
+    val frcnn = Module.loadCaffe(VggFRcnn(21,
+      PostProcessParam(0.3f, 21, false, -1, 0)),
+      "/home/jxy/data/caffeModels/vgg16/test.prototxt",
+      "/home/jxy/data/middle/vgg16/new/pretrained.caffemodel", false)
+    val criterion = FrcnnCriterion()
+    val input = T()
+    input.insert(TestUtil.loadFeatures("data"))
+    input.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
+    input.insert(target)
+
+    frcnn.forward(input)
+    criterion.forward(frcnn.output.toTable, target)
+    criterion.backward(frcnn.output.toTable, target)
+
+    TestUtil.assertEqual2(TestUtil.loadFeatures("conv5_3"),
+      frcnn("relu5_3").get.output.toTensor[Float], "conv5_3", 1e-4)
+    TestUtil.assertEqual("rpn_bbox_pred", frcnn("rpn_bbox_pred").get.output.toTensor[Float], 1e-4)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("rois"),
+      frcnn("proposal").get.output.toTensor[Float], "rois", 1e-4)
+
+    frcnn.backward(input, criterion.gradInput)
   }
 }

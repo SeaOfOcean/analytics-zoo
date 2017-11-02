@@ -37,8 +37,10 @@ object FasterRcnn {
   }
 
 
-  def apply(nClass: Int, rpnPreNmsTopN: Int, rpnPostNmsTopN: Int, anchorParam: FasterRcnnParam,
-    rpn: Sequential[Float], fastRcnn: Sequential[Float]): Module[Float] = {
+  def apply(nClass: Int, rpnPreNmsTopNTest: Int, rpnPostNmsTopNTest: Int,
+    anchorParam: FasterRcnnParam,
+    rpn: Sequential[Float], fastRcnn: Sequential[Float],
+    rpnPreNmsTopNTrain: Int = 12000, rpnPostNmsTopNTrain: Int = 2000): Module[Float] = {
     val model = Sequential()
     val model1 = ParallelTable()
     model1.add(rpn)
@@ -52,8 +54,9 @@ object FasterRcnn {
     left1.add(selectTensor(1, 1, 2))
     left1.add(selectTensor1(2))
     left.add(left1)
-    left.add(Proposal(rpnPreNmsTopN,
-      rpnPostNmsTopN, anchorParam.ratios, anchorParam.scales))
+    left.add(Proposal(rpnPreNmsTopNTest,
+      rpnPostNmsTopNTest,
+      anchorParam.ratios, anchorParam.scales, rpnPreNmsTopNTrain, rpnPostNmsTopNTrain))
 //    left.add(selectTensor1(1))
     // first add feature from feature net
     middle.add(selectTensor(1, 2))

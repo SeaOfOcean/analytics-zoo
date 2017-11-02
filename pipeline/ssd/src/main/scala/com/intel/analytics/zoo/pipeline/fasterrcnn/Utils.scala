@@ -36,9 +36,9 @@ object Utils {
     DataSet.rdd(trainRdd) -> RecordToFeature(true) ->
       BytesToMat() ->
       RandomAspectScale(param.scales, param.scaleMultipleOf) -> RoiResize() ->
-      RandomTransformer(HFlip() -> RoiHFlip(), 0.5) ->
+      RandomTransformer(HFlip() -> RoiHFlip(false), 0.5) ->
       MatToFloats(validHeight = 600, validWidth = 600,
-        meanRGB = Some(122.7717f, 115.9465f, 102.9801f)) ->
+        meanRGB = Some(param.pixelMeanRGB)) ->
       FrcnnToBatch(batchSize, true)
   }
 

@@ -131,7 +131,7 @@ object Train {
           (Module.loadCaffe(VggFRcnn(param.classNumber,
             PostProcessParam(0.3f, param.classNumber, false, -1, 0)),
             param.caffeDefPath.get, param.caffeModelPath.get),
-            PreProcessParam(param.batchSize))
+            PreProcessParam(param.batchSize, Array(400, 500, 600, 700)))
         case "pvanet" =>
           (Module.loadCaffe(PvanetFRcnn(param.classNumber,
             PostProcessParam(0.4f, param.classNumber, true, -1, 0)),

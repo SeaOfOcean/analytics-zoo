@@ -17,15 +17,22 @@
 package com.intel.analytics.zoo.pipeline.common.nn
 
 import com.intel.analytics.bigdl.tensor.Tensor
-import com.intel.analytics.bigdl.utils.{File, Table}
+import com.intel.analytics.bigdl.utils.{File, T, Table}
+import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import org.scalatest.{FlatSpec, Matchers}
 
 class SmoothL1CriterionWithWeights2Spec extends FlatSpec with Matchers {
   "smoothl1 forward" should "work" in {
-    val criterion = SmoothL1CriterionWithWeights2[Float](3)
-    val input = File.load[Tensor[Float]]("/tmp/input_3104580143564290.bin")
-    val target = File.load[Table]("/tmp/target_3104580143564290.bin")
+    TestUtil.middleRoot = "/home/jxy/data/middle/vgg16/new"
+    val criterion = SmoothL1CriterionWithWeights2[Float](1)
+    val input = TestUtil.loadFeatures("bbox_pred")
+    val bbox_targets = TestUtil.loadFeatures("bbox_targets")
+    val bbox_inside_weights = TestUtil.loadFeatures("bbox_inside_weights")
+    val bbox_outside_weights = TestUtil.loadFeatures("bbox_outside_weights")
+
+    val target = T(bbox_targets, bbox_inside_weights, bbox_outside_weights)
     println(criterion.forward(input, target))
     println(criterion.output)
   }
+
 }
