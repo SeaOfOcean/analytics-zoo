@@ -70,9 +70,9 @@ class FrcnnToBatch(totalBatch: Int,
             val featureTensor = Tensor(Storage(data))
               .resize(1, feature.getHeight(), feature.getWidth(), 3).transpose(2, 4).transpose(3, 4)
               .contiguous()
-            input.insert(featureTensor)
-            input.insert(imInfoTensor)
-            input.insert(labelTensor)
+            input.insert(1, featureTensor)
+            input.insert(2, imInfoTensor)
+            input.insert(3, labelTensor)
             imInfoData(i * 4) = height
             imInfoData(i * 4 + 1) = width
             imInfoData(i * 4 + 2) = height.toFloat / feature.getOriginalHeight

@@ -156,8 +156,6 @@ class AnchorTarget(param: FasterRcnnParam)
       isFilter
     })
 
-
-    println(maxOverlaps.length, labels.nElement())
     if (!param.RPN_CLOBBER_POSITIVES) {
       // assign bg labels first so that positive labels can clobber them
       maxOverlaps.zip(Stream from 1).foreach(x => {

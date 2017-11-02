@@ -17,7 +17,7 @@
 package com.intel.analytics.zoo.pipeline.common.nn
 
 import com.intel.analytics.bigdl.nn.abstractnn.AbstractCriterion
-import com.intel.analytics.bigdl.nn.{ParallelCriterion, SmoothL1CriterionWithWeights, SoftmaxWithCriterion}
+import com.intel.analytics.bigdl.nn.{ParallelCriterion, SoftmaxWithCriterion}
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
@@ -43,9 +43,9 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   lossBboxWeight: Float = 1)(implicit ev: TensorNumeric[Float])
   extends AbstractCriterion[Table, Tensor[Float], Float] {
 
-  val rpn_loss_bbox = SmoothL1CriterionWithWeights(rpnSigma)
+  val rpn_loss_bbox = SmoothL1CriterionWithWeights2(rpnSigma)
   val rpn_loss_cls = SoftmaxWithCriterion(ignoreLabel = ignoreLabel)
-  val loss_bbox = SmoothL1CriterionWithWeights(frcnnSigma)
+  val loss_bbox = SmoothL1CriterionWithWeights2(frcnnSigma)
   val loss_cls = SoftmaxWithCriterion()
 
   val data = T()
