@@ -130,7 +130,11 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
       frcnn("relu5_3").get.output.toTensor[Float], "conv5_3", 1e-4)
     TestUtil.assertEqual("rpn_bbox_pred", frcnn("rpn_bbox_pred").get.output.toTensor[Float], 1e-4)
     TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_rois"),
-      frcnn("proposal").get.output.toTensor[Float], "rpn_rois", 1e-4)
+      frcnn("proposal").get.output.toTensor[Float], "rpn_rois", 1e-3)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("rois"),
+      frcnn("roi-data").get.output.toTable[Tensor[Float]](1), "rois", 1e-3)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("bbox_targets"),
+      frcnn("roi-data").get.output.toTable[Tensor[Float]](3), "bbox_targets", 1e-3)
 
     frcnn.backward(input, criterion.gradInput)
   }

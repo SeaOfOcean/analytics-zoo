@@ -63,44 +63,58 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   }
 
 
+  var debug = false
   // Fraction of minibatch that is labeled foreground (i.e. class > 0)
   val FG_FRACTION = 0.25
   val rois_per_image = param.BATCH_SIZE
   val fgRoisPerImage = round(FG_FRACTION * param.BATCH_SIZE).toInt
 
   var fgRoisPerThisImage = 0
-  var bg_rois_per_this_image = 0
+  var bgRoisPerThisImage = 0
 
   // Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
   val FG_THRESH = 0.5f
 
   private def selectForeGroundRois(maxOverlaps: Tensor[Float]): Array[Int] = {
     // Select foreground RoIs as those with >= FG_THRESH overlap
-    var fgInds = maxOverlaps.storage().array().zip(Stream from 1)
-      .filter(x => x._1 >= FG_THRESH).map(x => x._2)
+    var fgInds = Array.range(1, maxOverlaps.nElement() + 1)
+      .filter(i => maxOverlaps.valueAt(i, 1) >= FG_THRESH)
+//    var fgInds = maxOverlaps.storage().array().zip(Stream from 1)
+//      .filter(x => x._1 >= FG_THRESH).map(x => x._2)
     // Guard against the case when an image has fewer than fg_rois_per_image
     // foreground RoIs
     fgRoisPerThisImage = Math.min(fgRoisPerImage, fgInds.length)
     // Sample foreground regions without replacement
     if (fgInds.length > 0) {
-      fgInds = Random.shuffle(fgInds.toList).slice(0, fgRoisPerThisImage).toArray
+      fgInds = if (debug) {
+        fgInds.toList.slice(0, fgRoisPerThisImage).toArray
+      } else {
+        Random.shuffle(fgInds.toList).slice(0, fgRoisPerThisImage).toArray
+      }
     }
     fgInds
   }
 
-  def selectBackgroundRois(max_overlaps: Tensor[Float]): Array[Int] = {
+  def selectBackgroundRois(maxOverlaps: Tensor[Float]): Array[Int] = {
     // Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
-    var bg_inds = max_overlaps.storage().array().zip(Stream from 1)
-      .filter(x => (x._1 < param.BG_THRESH_HI) && (x._1 >= param.BG_THRESH_LO))
-      .map(x => x._2)
+    var bgInds = Array.range(1, maxOverlaps.nElement() + 1)
+      .filter(i => (maxOverlaps.valueAt(i, 1) < param.BG_THRESH_HI) &&
+        (maxOverlaps.valueAt(i, 1) >= param.BG_THRESH_LO))
+//    var bgInds = maxOverlaps.storage().array().zip(Stream from 1)
+//      .filter(x => (x._1 < param.BG_THRESH_HI) && (x._1 >= param.BG_THRESH_LO))
+//      .map(x => x._2)
     // Compute number of background RoIs to take from this image (guarding
     // against there being fewer than desired)
-    bg_rois_per_this_image = Math.min(rois_per_image - fgRoisPerThisImage, bg_inds.length)
+    bgRoisPerThisImage = Math.min(rois_per_image - fgRoisPerThisImage, bgInds.length)
     // Sample background regions without replacement
-    if (bg_inds.length > 0) {
-      bg_inds = Random.shuffle(bg_inds.toList).slice(0, bg_rois_per_this_image).toArray
+    if (bgInds.length > 0) {
+      bgInds = if (debug) {
+        bgInds.toList.slice(0, bgRoisPerThisImage).toArray
+      } else {
+        Random.shuffle(bgInds.toList).slice(0, bgRoisPerThisImage).toArray
+      }
     }
-    bg_inds
+    bgInds
   }
 
 
@@ -151,10 +165,25 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         .narrow(2, FrcnnMiniBatch.x1Index, 4),
       labels)
 
+//    println("bboxTargetData =============", Tensor.sparse(bboxTargetData))
+
     val (bboxTarget, bboxInsideWeights) =
       BboxUtil.getBboxRegressionLabels(bboxTargetData, numClasses)
+//    printSparse(bboxTarget)
+//    println(Tensor.sparse(bboxTarget))
+//    println(Tensor.sparse(bboxInsideWeights))
     (labels.squeeze(), sampledRois, bboxTarget, bboxInsideWeights)
   }
+
+//  def printSparse(tensor: Tensor[Float]): Unit = {
+//    (1 to tensor.size(1)).foreach(r => {
+//      (1 to tensor.size(2)).foreach(c => {
+//        if (tensor.valueAt(r, c) != 0) {
+//          println(r, c, tensor.valueAt(r, c))
+//        }
+//      })
+//    })
+//  }
 
 
   override def updateOutput(input: Table): Table = {
