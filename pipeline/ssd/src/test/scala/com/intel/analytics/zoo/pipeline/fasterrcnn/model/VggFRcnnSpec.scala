@@ -20,6 +20,7 @@ import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.bigdl.numeric.NumericFloat
+import com.intel.analytics.bigdl.optim.SGD
 import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import org.scalatest.{FlatSpec, Matchers}
@@ -117,25 +118,49 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
       "/home/jxy/data/caffeModels/vgg16/test.prototxt",
       "/home/jxy/data/middle/vgg16/new/pretrained.caffemodel", false)
     val criterion = FrcnnCriterion()
-    val input = T()
+    val (weights, grads) = frcnn.getParameters()
+    val state = T(
+      "learningRate" -> 0.001,
+      "weightDecay" -> 0.0005,
+      "momentum" -> 0.9,
+      "dampening" -> 0.0,
+      "learningRateSchedule" -> SGD.MultiStep(Array(80000, 100000, 120000), 0.1)
+    )
+    val sgd = new SGD[Float]
+
+    frcnn.zeroGradParameters()
+    var input = T()
     input.insert(TestUtil.loadFeatures("data"))
     input.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
-    input.insert(target)
+    input.insert(target.clone())
 
+    frcnn.zeroGradParameters()
     frcnn.forward(input)
     criterion.forward(frcnn.output.toTable, target)
     criterion.backward(frcnn.output.toTable, target)
-
-    TestUtil.assertEqual2(TestUtil.loadFeatures("conv5_3"),
-      frcnn("relu5_3").get.output.toTensor[Float], "conv5_3", 1e-4)
-    TestUtil.assertEqual("rpn_bbox_pred", frcnn("rpn_bbox_pred").get.output.toTensor[Float], 1e-4)
-    TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_rois"),
-      frcnn("proposal").get.output.toTensor[Float], "rpn_rois", 1e-3)
-    TestUtil.assertEqual2(TestUtil.loadFeatures("rois"),
-      frcnn("roi-data").get.output.toTable[Tensor[Float]](1), "rois", 1e-3)
-    TestUtil.assertEqual2(TestUtil.loadFeatures("bbox_targets"),
-      frcnn("roi-data").get.output.toTable[Tensor[Float]](3), "bbox_targets", 1e-3)
-
     frcnn.backward(input, criterion.gradInput)
+    println(s"loss: ${criterion.output}")
+//    val bboxPredDiff = TestUtil.loadFeatures("bbox_preddiff")
+//    println(Tensor.sparse(bboxPredDiff))
+//    println("bigdl =========== bbox pred grad")
+//    println(Tensor.sparse(criterion.gradInput.toTable(2)))
+//    TestUtil.assertEqual2(TestUtil.loadFeatures("conv5_3"),
+//      frcnn("relu5_3").get.output.toTensor[Float], "conv5_3", 1e-4)
+//    TestUtil.assertEqual("rpn_bbox_pred", frcnn("rpn_bbox_pred").get.output.toTensor[Float], 1e-4)
+//    TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_rois"),
+//      frcnn("proposal").get.output.toTensor[Float], "rpn_rois", 1e-3)
+//    TestUtil.assertEqual2(TestUtil.loadFeatures("rois"),
+//      frcnn("roi-data").get.output.toTable[Tensor[Float]](1), "rois", 1e-3)
+//    TestUtil.assertEqual2(TestUtil.loadFeatures("bbox_targets"),
+//      frcnn("roi-data").get.output.toTable[Tensor[Float]](3), "bbox_targets", 1e-3)
+
+    sgd.optimize(_ => (criterion.output, grads), weights, state, state)
+
+    frcnn.zeroGradParameters()
+    frcnn.forward(input)
+    criterion.forward(frcnn.output.toTable, target)
+    criterion.backward(frcnn.output.toTable, target)
+    frcnn.backward(input, criterion.gradInput)
+    println(s"loss: ${criterion.output}")
   }
 }

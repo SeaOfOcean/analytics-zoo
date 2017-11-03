@@ -135,32 +135,33 @@ class SmoothL1CriterionWithWeights2[@specialized(Float, Double) T: ClassTag]
           s"outsideW ${outsideW.nElement()}")
     }
     val data = diff.storage().array()
+    val dataOffset = diff.storageOffset() - 1
     var i = 0
-    while (i < data.length) {
+    while (i < diff.nElement()) {
       // f'(x) = sigma * sigma * x         if |x| < 1 / sigma / sigma
       //       = sign(x)
-      val x = data(i)
+      val x = data(dataOffset + i)
       if (ev.isGreater(ev.fromType[Double](1.0 / sigma2), ev.abs(x))) {
-        data(i) = ev.times(ev.fromType[Double](sigma2), x)
+        data(dataOffset + i) = ev.times(ev.fromType[Double](sigma2), x)
       } else {
         // sign(x) == (0<x) - (x<0)
-        if (ev.isGreater(data(i), ev.fromType(0))) {
-          data(i) = ev.fromType(1)
-        } else if (ev.isGreater(ev.fromType(0), data(i))) {
-          data(i) = ev.fromType(-1)
+        if (ev.isGreater(data(dataOffset + i), ev.fromType(0))) {
+          data(dataOffset + i) = ev.fromType(1)
+        } else if (ev.isGreater(ev.fromType(0), data(dataOffset + i))) {
+          data(dataOffset + i) = ev.fromType(-1)
         } else {
-          data(i) = ev.fromType(0)
+          data(dataOffset + i) = ev.fromType(0)
         }
       }
       i += 1
     }
-    val alpha = if (num > 0) {
-      ev.fromType(1.0 / num)
-    } else {
-      ev.fromType(input.size(1))
-    }
 
-    gradInput.resizeAs(diff).copy(diff).mul(alpha)
+    gradInput.resizeAs(diff).copy(diff)
+    if (num > 0) {
+      gradInput.div(ev.fromType(num))
+    } else {
+      gradInput.div(ev.fromType(input.size(1)))
+    }
     if (hasWeights) {
       // scale by inside weight
       gradInput.cmul(insideW)
