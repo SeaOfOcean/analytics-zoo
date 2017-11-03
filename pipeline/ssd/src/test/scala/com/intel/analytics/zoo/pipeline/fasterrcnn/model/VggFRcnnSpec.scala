@@ -129,7 +129,7 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     val sgd = new SGD[Float]
 
     frcnn.zeroGradParameters()
-    var input = T()
+    val input = T()
     input.insert(TestUtil.loadFeatures("data"))
     input.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
     input.insert(target.clone())
@@ -162,5 +162,11 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     criterion.backward(frcnn.output.toTable, target)
     frcnn.backward(input, criterion.gradInput)
     println(s"loss: ${criterion.output}")
+
+    frcnn.evaluate()
+    val input2 = T()
+    input2.insert(TestUtil.loadFeatures("data"))
+    input2.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
+    frcnn.forward(input2)
   }
 }

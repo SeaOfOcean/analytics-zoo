@@ -23,10 +23,12 @@ import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion._
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnn
 import org.apache.log4j.Logger
 
 object FrcnnCriterion {
   val logger = Logger.getLogger(getClass)
+
   def apply(rpnSigma: Float = 3, frcnnSigma: Float = 1,
     ignoreLabel: Option[Int] = Some(-1), rpnLossClsWeight: Float = 1,
     rpnLossBboxWeight: Float = 1,
@@ -36,6 +38,7 @@ object FrcnnCriterion {
       lossClsWeight)
 
 }
+
 class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   ignoreLabel: Option[Int] = Some(-1), rpnLossClsWeight: Float = 1,
   rpnLossBboxWeight: Float = 1,
@@ -61,17 +64,17 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   private val proposalBbox = T()
 
   override def updateOutput(input: Table, target: Tensor[Float]): Float = {
-    val cls_prob = input[Tensor[Float]](1)
-    val bbox_pred = input[Tensor[Float]](2)
-    val roiData = input[Table](3)
+    val cls_prob = input[Tensor[Float]](FasterRcnn.clsProbIndex)
+    val bbox_pred = input[Tensor[Float]](FasterRcnn.bboxPredIndex)
+    val roiData = input[Table](FasterRcnn.roiDataIndex)
     val proposalTarget = roiData[Tensor[Float]](2)
     proposalTarget.apply1(x => {
       require(x >= 1, "proposal target is 1-based")
       x
     })
-    val rpn_cls_score_reshape = input[Tensor[Float]](5)
-    val rpn_bbox_pred = input[Tensor[Float]](6)
-    val rpn_data = input[Table](7)
+    val rpn_cls_score_reshape = input[Tensor[Float]](FasterRcnn.rpnClsScoreIndex)
+    val rpn_bbox_pred = input[Tensor[Float]](FasterRcnn.rpnBboxPredIndex)
+    val rpn_data = input[Table](FasterRcnn.rpnDataIndex)
     val rpnTarget = rpn_data[Tensor[Float]](1)
     rpnTarget.apply1(x => {
       require(x >= 1 || x == -1, "rpn target is 1-based, or -1 for ignored label")
@@ -102,17 +105,37 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
     target
   }
 
+  @transient var roiDataGrad: Table = _
+  @transient var imInfoGrad: Tensor[Float] = _
+  @transient var rpnDataGrad: Table = _
+
   override def updateGradInput(input: Table, target: Tensor[Float]): Table = {
-//    cls_prob, bbox_pred, roi_data,
-//    rpn_cls_score_reshape, rpn_bbox_pred, rpn_data, imInfo
+    if (null == roiDataGrad) {
+      roiDataGrad = T(Tensor(), Tensor(), Tensor(), Tensor(), Tensor())
+      imInfoGrad = Tensor()
+      rpnDataGrad = T(Tensor(), Tensor(), Tensor(), Tensor())
+      gradInput.insert(FasterRcnn.roiDataIndex, roiDataGrad)
+      gradInput.insert(FasterRcnn.imInfoIndex, imInfoGrad)
+      gradInput.insert(FasterRcnn.rpnDataIndex, roiDataGrad)
+    }
+
     criterion.updateGradInput(data, label)
-    gradInput.insert(1, criterion.gradInput(1))
-    gradInput.insert(2, criterion.gradInput(2))
-    gradInput.insert(3, T(Tensor(), Tensor(), Tensor(), Tensor(), Tensor()))
-    gradInput.insert(4, Tensor())
-    gradInput.insert(5, criterion.gradInput(3))
-    gradInput.insert(6, criterion.gradInput(4))
-    gradInput.insert(7, T(Tensor(), Tensor(), Tensor(), Tensor()))
+    gradInput.insert(FasterRcnn.clsProbIndex, criterion.gradInput(1))
+    println("clsProbIndex: "
+      + input[Tensor[Float]](FasterRcnn.clsProbIndex).size().mkString("x")
+      + " " + gradInput[Tensor[Float]](FasterRcnn.clsProbIndex).size().mkString("x"))
+    gradInput.insert(FasterRcnn.bboxPredIndex, criterion.gradInput(2))
+    println("bboxPredIndex: "
+      + input[Tensor[Float]](FasterRcnn.bboxPredIndex).size().mkString("x")
+      + " " + gradInput[Tensor[Float]](FasterRcnn.bboxPredIndex).size().mkString("x"))
+    gradInput.insert(FasterRcnn.rpnClsScoreIndex, criterion.gradInput(3))
+    println("rpnClsScoreIndex: "
+      + input[Tensor[Float]](FasterRcnn.rpnClsScoreIndex).size().mkString("x")
+      + " " + gradInput[Tensor[Float]](FasterRcnn.rpnClsScoreIndex).size().mkString("x"))
+    gradInput.insert(FasterRcnn.rpnBboxPredIndex, criterion.gradInput(4))
+    println("rpnBboxPredIndex: "
+      + input[Tensor[Float]](FasterRcnn.rpnBboxPredIndex).size().mkString("x")
+      + " " + gradInput[Tensor[Float]](FasterRcnn.rpnBboxPredIndex).size().mkString("x"))
     gradInput
   }
 }

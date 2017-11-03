@@ -106,6 +106,16 @@ object FasterRcnn {
 //    pc
 //  }
 
+
+  // output index
+  val imInfoIndex = 1
+  val roiDataIndex = 2
+  val bboxPredIndex = 3
+  val clsProbIndex = 4
+  val rpnClsScoreIndex = 5
+  val rpnBboxPredIndex = 6
+  val rpnDataIndex = 7
+
 }
 
 /**

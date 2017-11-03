@@ -113,7 +113,7 @@ object VggFRcnn {
 
     val detectionOut = FrcnnPostprocessor(postProcessParam.nmsThresh, postProcessParam.nClasses,
       postProcessParam.bboxVote, postProcessParam.maxPerImage, postProcessParam.thresh).inputs(
-      cls_prob, bbox_pred, roi_data, imInfo,
+      imInfo, roi_data, bbox_pred, cls_prob,
       rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
     val model = Graph(Array(data, imInfo, gt), detectionOut)
     model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "relu2_2"))
