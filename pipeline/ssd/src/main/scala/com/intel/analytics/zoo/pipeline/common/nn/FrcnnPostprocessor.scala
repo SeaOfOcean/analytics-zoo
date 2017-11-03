@@ -21,7 +21,6 @@ import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.Table
 import com.intel.analytics.zoo.pipeline.common.BboxUtil
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.FasterRcnn
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.log4j.Logger
@@ -228,13 +227,12 @@ class FrcnnPostprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
       output = input
       return output
     }
-//    cls_prob, bbox_pred, roi_data, imInfo,
-//    rpn_cls_score_reshape, rpn_bbox_pred, rpn_data
-    val imInfo = input[Tensor[Float]](FasterRcnn.imInfoIndex)
-    val rois = if(input(FasterRcnn.roiDataIndex).isInstanceOf[Table])
-      input[Table](FasterRcnn.roiDataIndex)(1) else input[Tensor[Float]](FasterRcnn.roiDataIndex)
-    val boxDeltas = input[Tensor[Float]](FasterRcnn.bboxPredIndex)
-    val scores = input[Tensor[Float]](FasterRcnn.clsProbIndex)
+    val imInfo = input[Tensor[Float]](1)
+    val roisData = input[Activity](2)
+    val rois = if (roisData.isTable) roisData.toTable[Tensor[Float]](1)
+    else roisData.toTensor[Float]
+    val boxDeltas = input[Tensor[Float]](3)
+    val scores = input[Tensor[Float]](4)
     require(imInfo.dim() == 2 && imInfo.size(1) == 1 && imInfo.size(2) == 4,
       s"imInfo should be a 1x4 tensor, while actual is ${imInfo.size().mkString("x")}")
     require(rois.size(2) == 5,

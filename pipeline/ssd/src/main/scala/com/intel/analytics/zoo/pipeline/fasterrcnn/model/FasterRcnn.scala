@@ -88,34 +88,6 @@ object FasterRcnn {
   protected def selectTensor1(depth: Int): SelectTable[Float] = {
     new SelectTable(depth)
   }
-//
-//  def fasterRcnnCriterion(rpnSigma: Double = 3, frcnnSigma: Double = 1,
-//    ignoreLabel: Option[Int] = Some(-1), rpnLossClsWeight: Double = 1,
-//    rpnLossBboxWeight: Double = 1,
-//    lossClsWeight: Double = 1,
-//    lossBboxWeight: Double = 1): FrcnnCriterion[Float] = {
-//    val rpn_loss_bbox = SmoothL1CriterionWithWeights(rpnSigma)
-//    val rpn_loss_cls = SoftmaxWithCriterion(ignoreLabel = ignoreLabel)
-//    val loss_bbox = SmoothL1CriterionWithWeights(frcnnSigma)
-//    val loss_cls = SoftmaxWithCriterion()
-//    val pc = FrcnnCriterion()
-//    pc.add(rpn_loss_cls, rpnLossClsWeight)
-//    pc.add(rpn_loss_bbox, rpnLossBboxWeight)
-//    pc.add(loss_cls, lossClsWeight)
-//    pc.add(loss_bbox, lossBboxWeight)
-//    pc
-//  }
-
-
-  // output index
-  val imInfoIndex = 1
-  val roiDataIndex = 2
-  val bboxPredIndex = 3
-  val clsProbIndex = 4
-  val rpnClsScoreIndex = 5
-  val rpnBboxPredIndex = 6
-  val rpnDataIndex = 7
-
 }
 
 /**

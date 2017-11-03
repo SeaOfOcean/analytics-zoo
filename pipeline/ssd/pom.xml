@@ -66,25 +66,6 @@
         <spark-scope>provided</spark-scope>
     </properties>
 
-    <profiles>
-        <profile>
-            <id>mac</id>
-            <dependencies>
-                <dependency>
-                    <groupId>com.intel.analytics.bigdl.native</groupId>
-                    <artifactId>mkl-java-mac</artifactId>
-                    <version>0.3.0</version>
-                    <exclusions>
-                        <exclusion>
-                            <groupId>com.intel.analytics.bigdl.native</groupId>
-                            <artifactId>bigdl-native</artifactId>
-                        </exclusion>
-                    </exclusions>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
-
     <dependencies>
         <dependency>
             <groupId>org.scala-lang</groupId>
