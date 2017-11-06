@@ -190,7 +190,7 @@ object Train {
     }
     optimizer
       .setOptimMethod(optimMethod)
-      .setValidation(Trigger.everyEpoch,
+      .setValidation(Trigger.severalIteration(2),
         valSet.asInstanceOf[DataSet[MiniBatch[Float]]],
         Array(new MeanAveragePrecision(use07metric = true, normalized = false,
           nClass = param.classNumber)))

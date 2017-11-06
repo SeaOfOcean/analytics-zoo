@@ -25,7 +25,9 @@ class FrcnnMiniBatch(val input: Table, val target: Tensor[Float])
         targetLength += targetIndices(offset + i - 1)._2
         i += 1
       }
-      target.narrow(1, targetOffset, targetLength)
+      val subt = target.narrow(1, targetOffset, targetLength)
+      subInput.update(3, subt)
+      subt
     } else null
     FrcnnMiniBatch(subInput, subTarget)
   }

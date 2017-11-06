@@ -5,6 +5,7 @@ import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.zoo.transform.vision.image.ImageFeature
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
+import com.intel.analytics.bigdl.numeric.NumericFloat
 
 import scala.collection.Iterator
 import scala.collection.mutable.ArrayBuffer
@@ -35,10 +36,10 @@ class FrcnnToBatch(totalBatch: Int,
     val batchSizePerPartition = batchPerPartition
     new Iterator[FrcnnMiniBatch] {
       private val inputBatch: Table = T()
-      private val labelTensor: Tensor[Float] = Tensor[Float]()
-      private val imInfoTensor: Tensor[Float] = Tensor[Float]()
+      private val labelTensor: Tensor[Float] = Tensor()
+//      private val imInfoTensor: Tensor[Float] = Tensor[Float]()
       private var labelData: ArrayBuffer[Float] = null
-      private var imInfoData: Array[Float] = null
+//      private var imInfoData: Array[Float] = null
       private var maps: Array[ImageFeature] = null
       private var width = 0
       private var height = 0
@@ -57,8 +58,8 @@ class FrcnnToBatch(totalBatch: Int,
             val feature = prev.next()
             height = feature.getHeight()
             width = feature.getWidth()
-            if (imInfoData == null) {
-              imInfoData = new Array[Float](batchSize * 4)
+            if (maps == null) {
+//              imInfoData = new Array[Float](batchSize * 4)
               maps = new Array[ImageFeature](batchSize)
               if (convertLabel) {
                 labelData = new ArrayBuffer[Float]()
@@ -70,13 +71,11 @@ class FrcnnToBatch(totalBatch: Int,
             val featureTensor = Tensor(Storage(data))
               .resize(1, feature.getHeight(), feature.getWidth(), 3).transpose(2, 4).transpose(3, 4)
               .contiguous()
+            val imInfoTensor = Tensor(T(height, width, height.toFloat / feature.getOriginalHeight,
+              width.toFloat / feature.getOriginalWidth))
             input.insert(1, featureTensor)
             input.insert(2, imInfoTensor)
             input.insert(3, labelTensor)
-            imInfoData(i * 4) = height
-            imInfoData(i * 4 + 1) = width
-            imInfoData(i * 4 + 2) = height.toFloat / feature.getOriginalHeight
-            imInfoData(i * 4 + 3) = width.toFloat / feature.getOriginalWidth
             if (convertLabel) {
               require(feature.hasLabel(), "if convert label, there should be label")
               val target = feature.getLabel[RoiLabel]
@@ -107,8 +106,6 @@ class FrcnnToBatch(totalBatch: Int,
             maps(i) = feature
             i += 1
           }
-
-          imInfoTensor.set(Storage[Float](imInfoData), storageOffset = 1, sizes = Array(i, 4))
           val batch = if (convertLabel) {
             labelTensor.set(Storage[Float](labelData.toArray),
               storageOffset = 1, sizes = Array(labelData.length / 7, 7))
