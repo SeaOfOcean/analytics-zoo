@@ -169,4 +169,89 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     input2.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
     frcnn.forward(input2)
   }
+
+  "time before compress" should "work" in {
+    val model = Module.loadModule[Float]("/home/jxy/code/analytics-zoo/pipeline/ssd/data/models/" +
+      "bigdl_frcnn_vgg_voc.model")
+
+    val data = Tensor[Float](1, 3, 600, 800).randn()
+    val rois = Tensor[Float](T(600f, 800f, 1f, 1f)).resize(1, 4)
+    val input = T(data, rois, null)
+
+    model.evaluate()
+    model.forward(input)
+    model.resetTimes()
+
+
+    val start = System.nanoTime()
+    model.forward(input)
+    println("time takes: ", (System.nanoTime() - start) / 1e9 + "s")
+
+    val namedModules = Utils.getNamedModules(model)
+
+    var convTime: Double = 0
+    var reluTime: Double = 0
+    var other: Double = 0
+    namedModules.foreach(x => {
+      if (x._2.isInstanceOf[SpatialConvolution[Float]]) {
+        convTime += x._2.getTimes()(0)._2 / 1e9
+      } else if (x._2.isInstanceOf[ReLU[Float]]) {
+        reluTime += x._2.getTimes()(0)._2 / 1e9
+      } else if (x._2.isInstanceOf[Linear[Float]]) {
+        println(x._1 + "\t" + x._2.getTimes()(0)._2 / 1e9)
+      }
+      else if (x._2.isInstanceOf[RoiPooling[Float]]) {
+        println(x._1 + "\t" + x._2.getTimes()(0)._2 / 1e9)
+      }
+      else {
+        other += x._2.getTimes()(0)._2 / 1e9
+      }
+    })
+    println(s"convolution\t$convTime")
+    println(s"relu\t$reluTime")
+    println(s"other\t$other")
+  }
+
+  "time after compress" should "work" in {
+
+    val model = Module.loadModule[Float]("/home/jxy/code/analytics-zoo/pipeline/ssd/data/models/" +
+      "bigdl_frcnn_vgg_voc_compress.model")
+
+    val data = Tensor[Float](1, 3, 600, 800).randn()
+    val rois = Tensor[Float](T(600f, 800f, 1f, 1f)).resize(1, 4)
+    val input = T(data, rois, null)
+
+    model.evaluate()
+    model.forward(input)
+    model.resetTimes()
+
+
+    val start = System.nanoTime()
+    model.forward(input)
+    println("time takes: ", (System.nanoTime() - start) / 1e9)
+
+    val namedModules = Utils.getNamedModules(model)
+
+    var convTime: Double = 0
+    var reluTime: Double = 0
+    var other: Double = 0
+    namedModules.foreach(x => {
+      if (x._2.isInstanceOf[SpatialConvolution[Float]]) {
+        convTime += x._2.getTimes()(0)._2 / 1e9
+      } else if (x._2.isInstanceOf[ReLU[Float]]) {
+        reluTime += x._2.getTimes()(0)._2 / 1e9
+      } else if (x._2.isInstanceOf[Linear[Float]]) {
+        println(x._1 + "\t" + x._2.getTimes()(0)._2 / 1e9)
+      }
+      else if (x._2.isInstanceOf[RoiPooling[Float]]) {
+        println(x._1 + "\t" + x._2.getTimes()(0)._2 / 1e9)
+      }
+      else {
+        other += x._2.getTimes()(0)._2 / 1e9
+      }
+    })
+    println(s"convolution\t$convTime")
+    println(s"relu\t$reluTime")
+    println(s"other\t$other")
+  }
 }

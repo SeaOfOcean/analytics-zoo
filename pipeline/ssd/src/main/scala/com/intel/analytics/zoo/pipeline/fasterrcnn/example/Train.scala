@@ -19,7 +19,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn.example
 
 import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.MiniBatch
-import com.intel.analytics.bigdl.nn.Module
+import com.intel.analytics.bigdl.nn.{Module, SpatialShareConvolution}
 import com.intel.analytics.bigdl.optim.{Optimizer, _}
 import com.intel.analytics.bigdl.pipeline.fasterrcnn.Utils
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
@@ -41,6 +41,7 @@ object Option {
     modelType: String = "vgg16",
     caffeDefPath: Option[String] = None,
     caffeModelPath: Option[String] = None,
+    optim: String = "sgd",
     checkpoint: Option[String] = None,
     modelSnapshot: Option[String] = None,
     stateSnapshot: Option[String] = None,
@@ -48,10 +49,11 @@ object Option {
     batchSize: Int = -1,
     learningRate: Double = 0.001,
     learningRateDecay: Double = 0.1,
-    maxEpoch: Int = 250,
+    maxEpoch: Int = 50,
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
-    summaryDir: Option[String] = None
+    summaryDir: Option[String] = None,
+    share: Boolean = true
   )
 
   val trainParser = new OptionParser[TrainParams]("BigDL SSD Example") {
@@ -93,6 +95,9 @@ object Option {
     opt[Double]('d', "learningRateDecay")
       .text("learning rate decay")
       .action((x, c) => c.copy(learningRateDecay = x))
+    opt[String]("optim")
+      .text("optim method")
+      .action((x, c) => c.copy(optim = x))
     opt[Int]('b', "batchSize")
       .text("batch size")
       .action((x, c) => c.copy(batchSize = x))
@@ -106,6 +111,9 @@ object Option {
     opt[String]("summary")
       .text("train validate summary")
       .action((x, c) => c.copy(summaryDir = Some(x)))
+    opt[Boolean]("share")
+      .text("share convolution")
+      .action((x, c) => c.copy(share = x))
   }
 }
 
@@ -126,7 +134,7 @@ object Train {
       val sc = new SparkContext(conf)
       Engine.init
 
-      val (model, preParam) = param.modelType match {
+      var (model, preParam) = param.modelType match {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(param.classNumber,
             PostProcessParam(0.3f, param.classNumber, false, -1, 0)),
@@ -140,6 +148,7 @@ object Train {
         case _ =>
           throw new Exception("unsupport network")
       }
+      model = if (param.share) SpatialShareConvolution.shareConvolution(model) else model
 
 
       val trainSet = Utils.loadTrainSet(param.trainFolder, sc, preParam,
@@ -150,12 +159,19 @@ object Train {
       val optimMethod = if (param.stateSnapshot.isDefined) {
         OptimMethod.load[Float](param.stateSnapshot.get)
       } else {
-        val learningRateSchedule = SGD.Step(50000, 0.1)
-        new SGD[Float](
-          learningRate = param.learningRate,
-          momentum = 0.9,
-          dampening = 0.0,
-          learningRateSchedule = learningRateSchedule)
+        param.optim match {
+          case "sgd" =>
+            val learningRateSchedule = SGD.Step(50000, 0.1)
+            new SGD[Float](
+              learningRate = param.learningRate,
+              momentum = 0.9,
+              dampening = 0.0,
+              learningRateSchedule = learningRateSchedule)
+          case "adam" =>
+            new Adam[Float](
+              learningRate = param.learningRate
+            )
+        }
       }
 
       optimize(model, trainSet, valSet, param, optimMethod,
@@ -190,7 +206,7 @@ object Train {
     }
     optimizer
       .setOptimMethod(optimMethod)
-      .setValidation(Trigger.severalIteration(2),
+      .setValidation(Trigger.everyEpoch,
         valSet.asInstanceOf[DataSet[MiniBatch[Float]]],
         Array(new MeanAveragePrecision(use07metric = true, normalized = false,
           nClass = param.classNumber)))
