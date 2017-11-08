@@ -37,6 +37,7 @@ object FrcnnPostprocessor {
     new FrcnnPostprocessor(nmsThresh, nClasses, bboxVote, maxPerImage, thresh)
 }
 
+@SerialVersionUID(5253792953255433914L)
 class FrcnnPostprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
   var bboxVote: Boolean, var maxPerImage: Int = 100, var thresh: Double = 0.05)(
   implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Activity, Float] {
