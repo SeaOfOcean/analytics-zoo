@@ -173,25 +173,29 @@ class FrcnnPostprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
       val imageScores = ArrayBuffer[Float]()
       var j = 1
       while (j < nClasses) {
-        val res = results(j).classes
-        if (res.nElement() > 0) {
-          res.apply1(x => {
-            imageScores.append(x)
-            x
-          })
+        if (results(j) != null) {
+          val res = results(j).classes
+          if (res.nElement() > 0) {
+            res.apply1(x => {
+              imageScores.append(x)
+              x
+            })
+          }
         }
         j += 1
       }
       val imageThresh = imageScores.sortWith(_ < _)(imageScores.length - maxPerImage)
       j = 1
       while (j < nClasses) {
-        val box = results(j).bboxes
-        val keep = (1 to box.size(1)).filter(x =>
-          box.valueAt(x, box.size(2)) >= imageThresh).toArray
-        val selectedScores = selectTensor(results(j).classes, keep, 1)
-        val selectedBoxes = selectTensor(results(j).bboxes, keep, 1)
-        results(j).classes.resizeAs(selectedScores).copy(selectedScores)
-        results(j).bboxes.resizeAs(selectedBoxes).copy(selectedBoxes)
+        if (results(j) != null) {
+          val box = results(j).bboxes
+          val keep = (1 to box.size(1)).filter(x =>
+            box.valueAt(x, box.size(2)) >= imageThresh).toArray
+          val selectedScores = selectTensor(results(j).classes, keep, 1)
+          val selectedBoxes = selectTensor(results(j).bboxes, keep, 1)
+          results(j).classes.resizeAs(selectedScores).copy(selectedScores)
+          results(j).bboxes.resizeAs(selectedBoxes).copy(selectedBoxes)
+        }
         j += 1
       }
     }

@@ -40,7 +40,8 @@ object Test {
     caffeModelPath: String = "",
     nClass: Int = 21,
     batch: Int = 1,
-    nPartition: Int = -1)
+    nPartition: Int = -1,
+    isProtobuf: Boolean = true)
 
   val testParamParser = new OptionParser[TestParam]("Spark-DL Test") {
     head("Spark-DL Test")
@@ -76,6 +77,9 @@ object Test {
       .text("number of partitions")
       .action((x, c) => c.copy(nPartition = x))
       .required()
+    opt[Boolean]("protobuf")
+      .text("is model saved with protobuf")
+      .action((x, c) => c.copy(isProtobuf = x))
   }
 
   def main(args: Array[String]) {
@@ -88,9 +92,9 @@ object Test {
         nClass = params.nClass)
       val rdd = IOUtils.loadSeqFiles(params.nPartition, params.folder, sc)
 
-//      val model = PipelineCaffeLoader.loadCaffe(params.caffeDefPath, params.caffeModelPath,
-//        Array("proposal", "im_info"))
-      val model = Module.loadModule[Float](params.bigdlModel)
+      val model = if (params.isProtobuf) Module.loadModule[Float](params.bigdlModel)
+      else Module.load[Float](params.bigdlModel)
+
       val (preParam, postParam) = params.modelType.toLowerCase() match {
         case "vgg16" =>
           val postParam = PostProcessParam(0.3f, params.nClass, false, 100, 0.05)

@@ -19,6 +19,7 @@ package com.intel.analytics.zoo.pipeline.fasterrcnn
 import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.dataset.Transformer
 import com.intel.analytics.bigdl.models.utils.ModelBroadcast
+import com.intel.analytics.bigdl.nn.Utils
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.ValidationMethod
 import com.intel.analytics.zoo.pipeline.common.ModuleUtil
@@ -43,6 +44,16 @@ class Validator(model: Module[Float],
 
 
   ModuleUtil.shareMemory(model)
+
+
+  val postprocessor = Utils.getNamedModules(model)
+    .find(x => x._2.isInstanceOf[FrcnnPostprocessor]).get._2.asInstanceOf[FrcnnPostprocessor]
+
+  postprocessor.maxPerImage = postPrecessParam.maxPerImage
+  postprocessor.nmsThresh = postPrecessParam.nmsThresh
+  postprocessor.bboxVote = postPrecessParam.bboxVote
+  postprocessor.thresh = postPrecessParam.thresh
+
 
   def test(rdd: RDD[SSDByteRecord]): Unit = {
     Validator.test(rdd, model, preProcessor, evaluator)

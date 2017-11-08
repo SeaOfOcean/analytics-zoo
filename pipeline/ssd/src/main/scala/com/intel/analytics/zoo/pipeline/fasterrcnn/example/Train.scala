@@ -137,12 +137,12 @@ object Train {
       var (model, preParam) = param.modelType match {
         case "vgg16" =>
           (Module.loadCaffe(VggFRcnn(param.classNumber,
-            PostProcessParam(0.3f, param.classNumber, false, -1, 0)),
+            PostProcessParam(0.3f, param.classNumber, false, 100, 0.05)),
             param.caffeDefPath.get, param.caffeModelPath.get),
             PreProcessParam(param.batchSize, Array(400, 500, 600, 700)))
         case "pvanet" =>
           (Module.loadCaffe(PvanetFRcnn(param.classNumber,
-            PostProcessParam(0.4f, param.classNumber, true, -1, 0)),
+            PostProcessParam(0.4f, param.classNumber, true, 100, 0.05)),
             param.caffeDefPath.get, param.caffeModelPath.get),
             PreProcessParam(param.batchSize, Array(640), 32))
         case _ =>
