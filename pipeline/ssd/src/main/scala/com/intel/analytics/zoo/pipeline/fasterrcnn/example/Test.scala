@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl.nn.{Graph, Module}
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.Validator
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, VggFRcnn}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser
@@ -92,7 +92,9 @@ object Test {
         nClass = params.nClass)
       val rdd = IOUtils.loadSeqFiles(params.nPartition, params.folder, sc)
 
-      val model = if (params.isProtobuf) Module.loadModule[Float](params.bigdlModel)
+      val model = if (params.isProtobuf) Module.loadCaffe(VggFRcnn(params.nClass,
+        PostProcessParam(0.3f, params.nClass, false, 100, 0.05)),
+        params.caffeDefPath, params.caffeModelPath)
       else Module.load[Float](params.bigdlModel)
 
       val (preParam, postParam) = params.modelType.toLowerCase() match {
@@ -100,10 +102,6 @@ object Test {
           val postParam = PostProcessParam(0.3f, params.nClass, false, 100, 0.05)
           val preParam = PreProcessParam(params.batch, nPartition = params.nPartition)
           (preParam, postParam)
-//          (Module.loadCaffe(VggFRcnn(params.nClass,
-//            PostProcessParam(0.3f, params.nClass, false, 100, 0.05)),
-//            params.caffeDefPath, params.caffeModelPath),
-//            PreProcessParam(params.batch, nPartition = params.nPartition))
         case "pvanet" =>
           val postParam = PostProcessParam(0.4f, params.nClass, true, 100, 0.05)
           val preParam = PreProcessParam(params.batch, Array(640), 32, nPartition = params.nPartition)
