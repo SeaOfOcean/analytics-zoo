@@ -32,7 +32,7 @@ object FrcnnPostprocessor {
   val logger = Logger.getLogger(this.getClass)
 
   def apply(nmsThresh: Float = 0.3f, nClasses: Int,
-  bboxVote: Boolean, maxPerImage: Int = 100, thresh: Double = 0.05)(
+    bboxVote: Boolean, maxPerImage: Int = 100, thresh: Double = 0.05)(
     implicit ev: TensorNumeric[Float]): FrcnnPostprocessor =
     new FrcnnPostprocessor(nmsThresh, nClasses, bboxVote, maxPerImage, thresh)
 }
@@ -194,8 +194,14 @@ class FrcnnPostprocessor(var nmsThresh: Float = 0.3f, val nClasses: Int,
             box.valueAt(x, box.size(2)) >= imageThresh).toArray
           val selectedScores = selectTensor(results(j).classes, keep, 1)
           val selectedBoxes = selectTensor(results(j).bboxes, keep, 1)
-          results(j).classes.resizeAs(selectedScores).copy(selectedScores)
-          results(j).bboxes.resizeAs(selectedBoxes).copy(selectedBoxes)
+          if (selectedScores.nElement() == 0) {
+            // todo: there is a bug in tensor to resizeAs empty tensor
+            results(j).classes.set()
+            results(j).bboxes.set()
+          } else {
+            results(j).classes.resizeAs(selectedScores).copy(selectedScores)
+            results(j).bboxes.resizeAs(selectedBoxes).copy(selectedBoxes)
+          }
         }
         j += 1
       }

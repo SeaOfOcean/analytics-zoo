@@ -79,10 +79,10 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
   "forward backward" should "work" in {
     val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
       .map(_.toFloat))).resize(1, 7)
-    val frcnn = VggFRcnn(21, PostProcessParam(0.3f, 21, false, -1, 0))
+    val frcnn = VggFRcnn(21, PostProcessParam(0.3f, 21, false, 100, 0.05))
     val criterion = FrcnnCriterion()
     val input = T()
-    input.insert(Tensor[Float](1, 3, 600, 800))
+    input.insert(Tensor[Float](1, 3, 600, 800).randn())
     input.insert(Tensor[Float](T(600, 800, 1, 1)).resize(1, 4))
     input.insert(target)
 
@@ -92,6 +92,26 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
 
     frcnn.backward(input, criterion.gradInput)
 
+  }
+
+  "forward with maxPerImage" should "work" in {
+    val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
+      .map(_.toFloat))).resize(1, 7)
+    val frcnn = VggFRcnn(21, PostProcessParam(0.3f, 21, false, 100, 0.05)).evaluate()
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 600, 800).randn())
+    input.insert(Tensor[Float](T(600, 800, 1, 1)).resize(1, 4))
+    input.insert(target)
+
+    frcnn.forward(input)
+  }
+
+  "zero tensor resize" should "work" in {
+    val t1 = Tensor[Float](10)
+    val t2 = Tensor[Float](0)
+    t1.set()
+    t2.size() should be (Array(0))
+    t1.nElement() should be (t2.nElement())
   }
 
   "forward backward" should "work properly" in {

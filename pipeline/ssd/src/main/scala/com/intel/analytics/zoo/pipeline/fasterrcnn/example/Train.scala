@@ -53,6 +53,7 @@ object Option {
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
     summaryDir: Option[String] = None,
+    checkIter: Int = 200,
     share: Boolean = true
   )
 
@@ -105,6 +106,9 @@ object Option {
     opt[Int]("classNum")
       .text("class number")
       .action((x, c) => c.copy(classNumber = x))
+    opt[Int]("checkIter")
+      .text("checkpoint iteration")
+      .action((x, c) => c.copy(checkIter = x))
     opt[String]("name")
       .text("job name")
       .action((x, c) => c.copy(jobName = x))
@@ -192,7 +196,7 @@ object Train {
     )
 
     if (param.checkpoint.isDefined) {
-      optimizer.setCheckpoint(param.checkpoint.get, Trigger.everyEpoch)
+      optimizer.setCheckpoint(param.checkpoint.get, Trigger.severalIteration(param.checkIter))
     }
 
     optimizer.overWriteCheckpoint()
@@ -206,7 +210,7 @@ object Train {
     }
     optimizer
       .setOptimMethod(optimMethod)
-      .setValidation(Trigger.everyEpoch,
+      .setValidation(Trigger.severalIteration(param.checkIter),
         valSet.asInstanceOf[DataSet[MiniBatch[Float]]],
         Array(new MeanAveragePrecision(use07metric = true, normalized = false,
           nClass = param.classNumber)))
