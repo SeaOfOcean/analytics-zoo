@@ -170,7 +170,8 @@ object Train {
               learningRate = param.learningRate,
               momentum = 0.9,
               dampening = 0.0,
-              learningRateSchedule = learningRateSchedule)
+              learningRateSchedule = learningRateSchedule,
+              weightDecay = 0.0005)
           case "adam" =>
             new Adam[Float](
               learningRate = param.learningRate
