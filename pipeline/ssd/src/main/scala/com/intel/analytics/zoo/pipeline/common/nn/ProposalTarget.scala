@@ -175,21 +175,10 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     (labels.squeeze(), sampledRois, bboxTarget, bboxInsideWeights)
   }
 
-//  def printSparse(tensor: Tensor[Float]): Unit = {
-//    (1 to tensor.size(1)).foreach(r => {
-//      (1 to tensor.size(2)).foreach(c => {
-//        if (tensor.valueAt(r, c) != 0) {
-//          println(r, c, tensor.valueAt(r, c))
-//        }
-//      })
-//    })
-//  }
-
-
   override def updateOutput(input: Table): Table = {
     if (!isTraining()) {
-      output.insert(1, input(1))
-      output.insert(2, input(2))
+      output(1) = input(1)
+      output(2) = input(2)
       return output
     }
 
@@ -216,12 +205,12 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     }
 
     // sampled rois (0, x1, y1, x2, y2) (1,5)
-    output.insert(1, rois)
+    output.update(1, rois)
     // labels (1,1)
-    output.insert(2, labels)
-    output.insert(3, bbox_targets)
-    output.insert(4, bboxInsideWeights)
-    output.insert(5, bboxInsideWeights)
+    output.update(2, labels)
+    output.update(3, bbox_targets)
+    output.update(4, bboxInsideWeights)
+    output.update(5, bboxInsideWeights)
     output
   }
 

@@ -187,6 +187,7 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     val input2 = T()
     input2.insert(TestUtil.loadFeatures("data"))
     input2.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
+    input2.insert(Tensor[Float]())
     frcnn.forward(input2)
   }
 
@@ -345,5 +346,64 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
 
     model.output should be(sharedModel.output)
     model.gradInput should be(sharedModel.gradInput)
+  }
+
+  "frcnn backward" should "work properly" in {
+    TestUtil.middleRoot = "/home/jxy/data/middle/vgg16/new"
+    val target = Tensor(Storage(Array(
+      0, 14, 0,
+      2.702702636718750000e+02,
+      1.573573608398437500e+02,
+      3.495495605468750000e+02,
+      2.654654541015625000e+02,
+      0, 15, 0,
+      2.726726684570312500e+02,
+      1.273273239135742188e+02,
+      3.375375366210937500e+02,
+      2.234234161376953125e+02,
+      0, 15, 1,
+      5.285285186767578125e+01,
+      3.339339294433593750e+02,
+      7.687687683105468750e+01,
+      3.915915832519531250e+02)
+      .map(_.toFloat))).resize(3, 7)
+    val frcnn = Module.loadCaffe(VggFRcnn(21,
+      PostProcessParam(0.3f, 21, false, -1, 0)),
+      "/home/jxy/data/caffeModels/vgg16/test.prototxt",
+      "/home/jxy/data/middle/vgg16/new/pretrained.caffemodel", false)
+    val criterion = FrcnnCriterion()
+    val (weights, grads) = frcnn.getParameters()
+    val state = T(
+      "learningRate" -> 0.001,
+      "weightDecay" -> 0.0005,
+      "momentum" -> 0.9,
+      "dampening" -> 0.0,
+      "learningRateSchedule" -> SGD.MultiStep(Array(80000, 100000, 120000), 0.1)
+    )
+    val sgd = new SGD[Float]
+
+    val input = T()
+    input.insert(TestUtil.loadFeatures("data"))
+    input.insert(Tensor[Float](T(400, 601, 1.2012012, 1.2012012)).resize(1, 4))
+    input.insert(target.clone())
+
+    frcnn.zeroGradParameters()
+    frcnn.forward(input)
+    criterion.forward(frcnn.output.toTable, target)
+    criterion.backward(frcnn.output.toTable, target)
+    frcnn.backward(input, criterion.gradInput)
+    println(s"loss: ${criterion.output}")
+  }
+
+  "test table" should "work" in {
+    val t = T()
+    t.update(5, "2")
+    t.update(9, "9")
+
+    t(1) = "1"
+    t(5) = "5"
+    t(10) = "10"
+
+    println(t)
   }
 }

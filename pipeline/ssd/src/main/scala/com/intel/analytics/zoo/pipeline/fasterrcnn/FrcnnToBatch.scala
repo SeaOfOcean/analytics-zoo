@@ -73,9 +73,9 @@ class FrcnnToBatch(totalBatch: Int,
               .contiguous()
             val imInfoTensor = Tensor(T(height, width, height.toFloat / feature.getOriginalHeight,
               width.toFloat / feature.getOriginalWidth)).resize(1, 4)
-            input.insert(1, featureTensor)
-            input.insert(2, imInfoTensor)
-            input.insert(3, labelTensor)
+            input(1) = featureTensor
+            input(2) = imInfoTensor
+            input(3) = labelTensor
             if (convertLabel) {
               require(feature.hasLabel(), "if convert label, there should be label")
               val target = feature.getLabel[RoiLabel]

@@ -77,14 +77,14 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
       require(x >= 1 || x == -1, "rpn target is 1-based, or -1 for ignored label")
       x
     })
-    data.insert(1, cls_prob)
-    label.insert(1, roiData(2))
-    data.insert(2, bbox_pred)
-    label.insert(2, getSubTable(roiData, proposalBbox, 3, 3))
-    data.insert(3, rpn_cls_score_reshape)
-    label.insert(3, rpn_data(1))
-    data.insert(4, rpn_bbox_pred)
-    label.insert(4, getSubTable(rpn_data, anchorBbox, 2, 3))
+    data(1) = cls_prob
+    label(1) = roiData(2)
+    data(2) = bbox_pred
+    label(2) = getSubTable(roiData, proposalBbox, 3, 3)
+    data(3) = rpn_cls_score_reshape
+    label(3) = rpn_data(1)
+    data(4) = rpn_bbox_pred
+    label(4) = getSubTable(rpn_data, anchorBbox, 2, 3)
     output = criterion.updateOutput(data, label)
     logger.info(s"Train net output #0: loss_bbox = ${criterion.outputs[Float](2)}")
     logger.info(s"Train net output #1: loss_cls = ${criterion.outputs[Float](1)}")
@@ -96,7 +96,7 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
   private def getSubTable(src: Table, target: Table, startInd: Int, len: Int): Table = {
     var i = 1
     (startInd until startInd + len).foreach(j => {
-      target.insert(i, src(j))
+      target(i) = src(j)
       i += 1
     })
     target
@@ -104,14 +104,13 @@ class FrcnnCriterion(rpnSigma: Float = 3, frcnnSigma: Float = 1,
 
   override def updateGradInput(input: Table, target: Tensor[Float]): Table = {
     criterion.updateGradInput(data, label)
-    gradInput.clear()
-    gradInput.insert(4, criterion.gradInput(1))
-    gradInput.insert(3, criterion.gradInput(2))
-    gradInput.insert(2, null)
-    gradInput.insert(1, null)
-    gradInput.insert(5, criterion.gradInput(3))
-    gradInput.insert(6, criterion.gradInput(4))
-    gradInput.insert(7, null)
+    gradInput(4) = criterion.gradInput(1)
+    gradInput(3) = criterion.gradInput(2)
+    gradInput(2) = null
+    gradInput(1) = null
+    gradInput(5) = criterion.gradInput(3)
+    gradInput(6) = criterion.gradInput(4)
+    gradInput(7) = null
     gradInput
   }
 }
