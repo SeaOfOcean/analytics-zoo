@@ -37,6 +37,7 @@ object AnchorTarget {
     (implicit ev: TensorNumeric[Float]): AnchorTarget = new AnchorTarget(param)
 }
 
+@SerialVersionUID(- 6245143347544093145L)
 class AnchorTarget(param: FasterRcnnParam)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Table, Float] {
   @transient var anchorTool: Anchor = _

@@ -39,6 +39,7 @@ object ProposalTarget {
  * Assign object detection proposals to ground-truth targets. Produces proposal
  * classification labels and bounding-box regression targets.
  */
+@SerialVersionUID(6250296121335715244L)
 class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Table, Float] {
 
