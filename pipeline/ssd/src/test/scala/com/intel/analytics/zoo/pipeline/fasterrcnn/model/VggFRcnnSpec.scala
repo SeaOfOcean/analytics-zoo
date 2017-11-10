@@ -110,8 +110,8 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     val t1 = Tensor[Float](10)
     val t2 = Tensor[Float](0)
     t1.set()
-    t2.size() should be (Array(0))
-    t1.nElement() should be (t2.nElement())
+    t2.size() should be(Array(0))
+    t1.nElement() should be(t2.nElement())
   }
 
   "forward backward" should "work properly" in {
@@ -273,5 +273,77 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     println(s"convolution\t$convTime")
     println(s"relu\t$reluTime")
     println(s"other\t$other")
+  }
+
+  "time for training" should "work" in {
+    val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
+      .map(_.toFloat))).resize(1, 7)
+    val model = VggFRcnn(21, PostProcessParam(0.3f, 21, false, 100, 0.05))
+    val criterion = FrcnnCriterion()
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 600, 800).randn())
+    input.insert(Tensor[Float](T(600, 800, 1, 1)).resize(1, 4))
+    input.insert(target)
+
+    model.forward(input)
+    criterion.forward(model.output.toTable, target)
+    criterion.backward(model.output.toTable, target)
+
+    model.backward(input, criterion.gradInput)
+
+    model.resetTimes()
+
+
+    val start = System.nanoTime()
+    model.forward(input)
+    criterion.forward(model.output.toTable, target)
+    criterion.backward(model.output.toTable, target)
+
+    model.backward(input, criterion.gradInput)
+    println("time takes: ", (System.nanoTime() - start) / 1e9)
+
+    val namedModules = Utils.getNamedModules(model)
+
+    var convTime: Double = 0
+    var reluTime: Double = 0
+    var other: Double = 0
+    namedModules.foreach(x => {
+      if (x._2.isInstanceOf[SpatialConvolution[Float]]) {
+        convTime += (x._2.getTimes()(0)._2 / 1e9 + x._2.getTimes()(0)._3 / 1e9)
+      } else if (x._2.isInstanceOf[ReLU[Float]]) {
+        reluTime += (x._2.getTimes()(0)._2 / 1e9 + x._2.getTimes()(0)._3 / 1e9)
+      } else {
+        println(x._1 + "\t" + x._2.getTimes()(0)._2 / 1e9 + "\t" + x._2.getTimes()(0)._3 / 1e9)
+      }
+    })
+    println(s"convolution\t$convTime")
+    println(s"relu\t$reluTime")
+  }
+
+  "frcnn share convolution" should "work" in {
+    val model = VggFRcnn(21, PostProcessParam(0.3f, 21, false, -1, 0))
+    val sharedModel = SpatialShareConvolution.shareConvolution[Float](model)
+    val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
+      .map(_.toFloat))).resize(1, 7)
+    val frcnn = VggFRcnn(21, PostProcessParam(0.3f, 21, false, 100, 0.05))
+    val criterion = FrcnnCriterion()
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 600, 800).randn())
+    input.insert(Tensor[Float](T(600, 800, 1, 1)).resize(1, 4))
+    input.insert(target)
+
+    model.loadModelWeights(sharedModel)
+
+    model.forward(input)
+    sharedModel.forward(input)
+
+    val gradOut = Tensor[Float]().resizeAs(model.output.toTensor).randn()
+
+    model.backward(input, gradOut)
+
+    sharedModel.backward(input, gradOut)
+
+    model.output should be(sharedModel.output)
+    model.gradInput should be(sharedModel.gradInput)
   }
 }
