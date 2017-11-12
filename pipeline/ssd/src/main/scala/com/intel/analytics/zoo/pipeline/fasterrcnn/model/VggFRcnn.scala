@@ -101,11 +101,14 @@ object VggFRcnn {
     val reLU6 = ReLU().inputs(fc6)
     val dropout6 = Dropout().setName("drop6").inputs(reLU6)
     val fc7 = Linear(4096, 4096).setName("fc7").inputs(dropout6)
+// val fc7 = Linear(4096, 4096).setName("fc7").inputs(reLU6)
     val reLU7 = ReLU().inputs(fc7)
     val dropout7 = Dropout().setName("drop7").inputs(reLU7)
     val cls_score = Linear(4096, 21).setName("cls_score").inputs(dropout7)
+// val cls_score = Linear(4096, 21).setName("cls_score").inputs(reLU7)
     val cls_prob = EvaluateOnly(SoftMax().setName("cls_prob")).inputs(cls_score)
     val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
+// val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(reLU7)
 
     // Training part
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
@@ -116,7 +119,8 @@ object VggFRcnn {
       imInfo, roi_data, bbox_pred, cls_prob,
       rpn_cls_score_reshape, rpn_bbox_pred, rpn_data)
     val model = Graph(Array(data, imInfo, gt), detectionOut)
-    model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "relu2_2"))
+    model.setScaleB(2)
+    model.stopGradient(Array("rpn-data", "roi-data", "proposal", "roi", "conv3_1"))
   }
 }
 

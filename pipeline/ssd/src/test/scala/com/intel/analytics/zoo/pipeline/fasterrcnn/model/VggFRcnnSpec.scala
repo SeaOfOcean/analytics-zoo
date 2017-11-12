@@ -351,17 +351,17 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
   "frcnn backward" should "work properly" in {
     TestUtil.middleRoot = "/home/jxy/data/middle/vgg16/new"
     val target = Tensor(Storage(Array(
-      0, 14, 0,
+      0, 15, 0,
       2.702702636718750000e+02,
       1.573573608398437500e+02,
       3.495495605468750000e+02,
       2.654654541015625000e+02,
-      0, 15, 0,
+      0, 16, 0,
       2.726726684570312500e+02,
       1.273273239135742188e+02,
       3.375375366210937500e+02,
       2.234234161376953125e+02,
-      0, 15, 1,
+      0, 16, 1,
       5.285285186767578125e+01,
       3.339339294433593750e+02,
       7.687687683105468750e+01,
@@ -391,7 +391,46 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     frcnn.forward(input)
     criterion.forward(frcnn.output.toTable, target)
     criterion.backward(frcnn.output.toTable, target)
+    val gradInput = criterion.gradInput
+    TestUtil.assertEqual("conv5_3", frcnn("relu5_3").get.output.toTensor[Float], 1e-4)
+    TestUtil.assertEqual("rpn_cls_score", frcnn("rpn_cls_score").get.output.toTensor[Float], 1e-5)
+    TestUtil.assertEqual("rpn_bbox_pred", frcnn("rpn_bbox_pred").get.output.toTensor[Float], 1e-5)
+    TestUtil.assertEqual("cls_score", frcnn("cls_score").get.output.toTensor[Float], 1e-3)
+    TestUtil.assertEqual("bbox_pred", frcnn("bbox_pred").get.output.toTensor[Float], 1e-3)
+    TestUtil.assertEqual("rpn_rois", frcnn("proposal").get.output.toTensor[Float], 1e-1)
+
+    TestUtil.assertEqual2(TestUtil.loadFeatures("rois"),
+      frcnn("roi-data").get.output.toTable[Tensor[Float]](1), "rois", 1e-3)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("bbox_targets"),
+      frcnn("roi-data").get.output.toTable[Tensor[Float]](3), "bbox_targets", 1e-3)
+
+    TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_labels").apply1(x => if(x != -1) x+1 else x),
+      frcnn("rpn-data").get.output.toTable[Tensor[Float]](1), "rpn_labels", 1e-3)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_bbox_targets"),
+      frcnn("rpn-data").get.output.toTable[Tensor[Float]](3), "rpn_bbox_targets", 1e-3)
+
+    TestUtil.assertEqual("pool5", frcnn("pool5").get.output.toTensor[Float], 1e-5)
+
+    TestUtil.assertEqual2(gradInput(3), TestUtil.loadFeatures("bbox_preddiff"), "bboxpred_diff",
+      1e-6)
+    TestUtil.assertEqual2(gradInput(4),
+      TestUtil.loadFeatures("cls_scorediff"), "cls_scorediff", 1e-6)
+    TestUtil.assertEqual2(gradInput(5),
+      TestUtil.loadFeatures("rpn_cls_scorediff").resize(1, 2, 225, 38), "rpn_cls_scorediff", 1e-6)
+    TestUtil.assertEqual2(gradInput(6), TestUtil.loadFeatures("rpn_bbox_preddiff"), "rpn_bbox_preddiff",
+      1e-6)
+    gradInput(4) = TestUtil.loadFeatures("cls_scorediff")
+    gradInput(3) = TestUtil.loadFeatures("bbox_preddiff")
+    gradInput(2) = null
+    gradInput(1) = null
+    gradInput(5) = TestUtil.loadFeatures("rpn_cls_scorediff")
+    gradInput(6) = TestUtil.loadFeatures("rpn_bbox_preddiff")
+    gradInput(7) = null
     frcnn.backward(input, criterion.gradInput)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("pool5diff").resize(128, 25088),
+      frcnn("fc6").get.gradInput.toTensor[Float], "pool5diff", 1e-5)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("fc7diff"),
+      frcnn("fc7").get.gradInput.toTensor[Float], "relu6", 1e-5)
     println(s"loss: ${criterion.output}")
   }
 

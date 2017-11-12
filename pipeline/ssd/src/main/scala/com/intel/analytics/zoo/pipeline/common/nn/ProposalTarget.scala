@@ -93,6 +93,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         Random.shuffle(fgInds.toList).slice(0, fgRoisPerThisImage).toArray
       }
     }
+    // println("fgInds: ============\n", fgInds.mkString(", "))
     fgInds
   }
 
@@ -115,6 +116,7 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         Random.shuffle(bgInds.toList).slice(0, bgRoisPerThisImage).toArray
       }
     }
+    // println(bgInds.mkString(", "))
     bgInds
   }
 
@@ -171,8 +173,8 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     val (bboxTarget, bboxInsideWeights) =
       BboxUtil.getBboxRegressionLabels(bboxTargetData, numClasses)
 //    printSparse(bboxTarget)
-//    println(Tensor.sparse(bboxTarget))
-//    println(Tensor.sparse(bboxInsideWeights))
+ //   println(Tensor.sparse(bboxTarget))
+ //   println(Tensor.sparse(bboxInsideWeights))
     (labels.squeeze(), sampledRois, bboxTarget, bboxInsideWeights)
   }
 
