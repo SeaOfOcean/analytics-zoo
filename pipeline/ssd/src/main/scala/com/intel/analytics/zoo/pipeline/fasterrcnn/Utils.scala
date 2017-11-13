@@ -27,6 +27,7 @@ import com.intel.analytics.zoo.transform.vision.image.augmentation.{AspectScale,
 import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, MatToFloats, RandomTransformer}
 import com.intel.analytics.zoo.transform.vision.label.roi._
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 
 object Utils {
@@ -51,5 +52,16 @@ object Utils {
       AspectScale(param.scales(0), param.scaleMultipleOf) ->
       MatToFloats(100, 100, meanRGB = Some(param.pixelMeanRGB)) ->
       FrcnnToBatch(param.batchSize, true)
+  }
+
+  def loadValRdd(folder: String, sc: SparkContext,
+    preProcessParam: PreProcessParam, batchSize: Int): RDD[FrcnnMiniBatch] = {
+    val rdd = IOUtils.loadSeqFiles(preProcessParam.nPartition, folder, sc)._1
+    val preProcessor = RecordToFeature(true) ->
+      BytesToMat() ->
+      AspectScale(preProcessParam.scales(0), preProcessParam.scaleMultipleOf) ->
+      MatToFloats(100, 100, meanRGB = Some(preProcessParam.pixelMeanRGB)) ->
+      FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
+    preProcessor(rdd)
   }
 }

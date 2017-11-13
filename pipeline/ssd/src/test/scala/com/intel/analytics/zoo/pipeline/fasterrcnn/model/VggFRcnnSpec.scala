@@ -94,6 +94,39 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
 
   }
 
+  "forward backward with norm" should "work" in {
+    val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
+      .map(_.toFloat))).resize(1, 7)
+    val model = VggFRcnn(21, PostProcessParam(0.3f, 21, false, 100, 0.05)).evaluate()
+    model.saveModule("/tmp/tmp.model", true)
+    val criterion = FrcnnCriterion()
+    val input = T()
+    input.insert(Tensor[Float](1, 3, 600, 800).randn())
+    input.insert(Tensor[Float](T(600, 800, 1, 1)).resize(1, 4))
+    input.insert(target)
+    val bboxPred = model("bbox_pred").get
+
+    model.forward(input)
+
+    val means = FasterRcnnParam.BBOX_NORMALIZE_MEANS.reshape(Array(1, 4))
+      .expand(Array(21, 4)).reshape(Array(21 * 4))
+    val stds = FasterRcnnParam.BBOX_NORMALIZE_STDS.reshape(Array(1, 4))
+      .expand(Array(21, 4)).reshape(Array(21 * 4))
+    val bp1 = bboxPred.output.toTensor.clone()
+    bp1.cmul(stds.reshape(Array(1, 21 * 4)).expand(Array(bp1.size(1), 21 * 4)))
+    println(bp1)
+
+    val wbs = bboxPred.getWeightsBias()
+    wbs(0).cmul(stds.reshape(Array(21 * 4, 1)).expand(Array(21 * 4, wbs(0).size(2))))
+    wbs(1).cmul(stds).add(1, means)
+    model.forward(input)
+    val bp2 = bboxPred.output.toTensor.clone()
+    println(bp2)
+
+    bp1 should be (bp2)
+  }
+
+
   "forward with maxPerImage" should "work" in {
     val target = Tensor(Storage(Array(0.0, 11.0, 0.0, 0.337411, 0.468211, 0.429096, 0.516061)
       .map(_.toFloat))).resize(1, 7)

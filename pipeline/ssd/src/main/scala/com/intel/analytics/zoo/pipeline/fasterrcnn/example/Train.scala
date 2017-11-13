@@ -22,15 +22,18 @@ import com.intel.analytics.bigdl.dataset.MiniBatch
 import com.intel.analytics.bigdl.nn.{Module, SpatialShareConvolution}
 import com.intel.analytics.bigdl.optim.{Optimizer, _}
 import com.intel.analytics.bigdl.pipeline.fasterrcnn.Utils
+import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
-import com.intel.analytics.zoo.pipeline.common.MeanAveragePrecision
+import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
+import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.SSDByteRecord
 import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
-import com.intel.analytics.zoo.pipeline.fasterrcnn.FrcnnMiniBatch
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnMiniBatch, Validator}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{VggFRcnn, _}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import scopt.OptionParser
 
 object Option {
@@ -49,11 +52,12 @@ object Option {
     batchSize: Int = -1,
     learningRate: Double = 0.001,
     learningRateDecay: Double = 0.1,
+    startEpoch: Int = 1,
     maxEpoch: Int = 50,
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
     summaryDir: Option[String] = None,
-    checkIter: Int = 200,
+    checkEpoch: Int = 1,
     share: Boolean = true
   )
 
@@ -106,9 +110,9 @@ object Option {
     opt[Int]("classNum")
       .text("class number")
       .action((x, c) => c.copy(classNumber = x))
-    opt[Int]("checkIter")
-      .text("checkpoint iteration")
-      .action((x, c) => c.copy(checkIter = x))
+    opt[Int]("checkEpoch")
+      .text("checkpoint epoch")
+      .action((x, c) => c.copy(checkEpoch = x))
     opt[String]("name")
       .text("job name")
       .action((x, c) => c.copy(jobName = x))
@@ -138,27 +142,30 @@ object Train {
       val sc = new SparkContext(conf)
       Engine.init
 
-      var (model, preParam) = param.modelType match {
+      var (model, preParamTrain, preParamVal, postParam) = param.modelType match {
         case "vgg16" =>
-          (Module.loadCaffe(VggFRcnn(param.classNumber,
-            PostProcessParam(0.3f, param.classNumber, false, 100, 0.05)),
-            param.caffeDefPath.get, param.caffeModelPath.get),
-            PreProcessParam(param.batchSize, Array(400, 500, 600, 700)))
+          val postParam = PostProcessParam(0.3f, param.classNumber, false, 100, 0.05)
+          val preParamTrain = PreProcessParam(param.batchSize, Array(400, 500, 600, 700))
+          val preParamVal = PreProcessParam(param.batchSize, nPartition = param.batchSize)
+          // todo: use bigdl model directly
+          val model = Module.loadCaffe(VggFRcnn(param.classNumber, postParam),
+            param.caffeDefPath.get, param.caffeModelPath.get)
+          (model, preParamTrain, preParamVal, postParam)
         case "pvanet" =>
-          (Module.loadCaffe(PvanetFRcnn(param.classNumber,
-            PostProcessParam(0.4f, param.classNumber, true, 100, 0.05)),
-            param.caffeDefPath.get, param.caffeModelPath.get),
-            PreProcessParam(param.batchSize, Array(640), 32))
+          val postParam = PostProcessParam(0.4f, param.classNumber, true, 100, 0.05)
+          val preParamTrain = PreProcessParam(param.batchSize, Array(640), 32)
+          val preParamVal = PreProcessParam(param.batchSize, Array(640), 32)
+          val model = Module.loadCaffe(PvanetFRcnn(param.classNumber, postParam),
+            param.caffeDefPath.get, param.caffeModelPath.get)
+          (model, preParamTrain, preParamVal, postParam)
         case _ =>
           throw new Exception("unsupport network")
       }
       model = if (param.share) SpatialShareConvolution.shareConvolution(model) else model
 
+      val trainSet = Utils.loadTrainSet(param.trainFolder, sc, preParamTrain, param.batchSize)
 
-      val trainSet = Utils.loadTrainSet(param.trainFolder, sc, preParam,
-        param.batchSize)
-
-      val valSet = Utils.loadValSet(param.valFolder, sc, preParam, param.batchSize)
+      val valSet = IOUtils.loadSeqFiles(param.batchSize, param.valFolder, sc)._1
 
       val optimMethod = if (param.stateSnapshot.isDefined) {
         OptimMethod.load[Float](param.stateSnapshot.get)
@@ -179,15 +186,51 @@ object Train {
         }
       }
 
-      optimize(model, trainSet, valSet, param, optimMethod,
-        Trigger.maxEpoch(param.maxEpoch), new FrcnnCriterion())
+      val epochStep = param.checkEpoch
 
+      val evaluator = new MeanAveragePrecision(true, normalized = false,
+        nClass = param.classNumber)
+      val validator = new Validator(model, preParamVal, postParam, evaluator, shareMemory = false)
+
+      val validationSummary = if (param.summaryDir.isDefined)
+        ValidationSummary(param.summaryDir.get, param.jobName) else null
+
+      val means = FasterRcnnParam.BBOX_NORMALIZE_MEANS.reshape(Array(1, 4))
+        .expand(Array(param.classNumber, 4)).reshape(Array(param.classNumber * 4))
+      val stds = FasterRcnnParam.BBOX_NORMALIZE_STDS.reshape(Array(1, 4))
+        .expand(Array(param.classNumber, 4)).reshape(Array(param.classNumber * 4))
+
+      (param.startEpoch to param.maxEpoch by epochStep).map { epoch =>
+        optimize(model, trainSet, param, optimMethod,
+          Trigger.maxEpoch(epochStep), new FrcnnCriterion())
+        val map = validate(model, validator, param.classNumber, means, stds, valSet, param.checkpoint, epoch)
+        if (null != validationSummary) validationSummary.addScalar("Mean Average Precision", map, epoch)
+      }
     })
   }
 
+  private def validate(model: Module[Float], validator: Validator,
+    classNumber: Int, means: Tensor[Float], stds: Tensor[Float], rdd: RDD[SSDByteRecord],
+    checkpoint: Option[String], epoch: Int): Float = {
+    val bboxPred = model("bbox_pred").get
+    val wbs = bboxPred.getWeightsBias()
+    val originalWbs = wbs.clone()
+    wbs(0).cmul(stds.reshape(Array(classNumber * 4, 1))
+      .expand(Array(classNumber * 4, wbs(0).size(2))))
+    wbs(1).cmul(stds).add(1, means)
+    val map = validator.test(rdd)
+    if (checkpoint.isDefined) {
+      // todo: saveModule
+      model.save(checkpoint.get + "/" + epoch + s"epoch_${map}.model")
+    }
+    // restore net to original state
+    wbs(0).copy(originalWbs(0))
+    wbs(1).copy(originalWbs(1))
+    map
+  }
+
   private def optimize(model: Module[Float],
-    trainSet: DataSet[FrcnnMiniBatch],
-    valSet: DataSet[FrcnnMiniBatch], param: TrainParams, optimMethod: OptimMethod[Float],
+    trainSet: DataSet[FrcnnMiniBatch], param: TrainParams, optimMethod: OptimMethod[Float],
     endTrigger: Trigger,
     criterion: Criterion[Float]): Module[Float] = {
     val optimizer = Optimizer(
@@ -196,11 +239,11 @@ object Train {
       criterion = criterion
     )
 
-    if (param.checkpoint.isDefined) {
-      optimizer.setCheckpoint(param.checkpoint.get, Trigger.severalIteration(param.checkIter))
-    }
+//    if (param.checkpoint.isDefined) {
+//      optimizer.setCheckpoint(param.checkpoint.get, Trigger.severalIteration(param.checkEpoch))
+//    }
 
-    optimizer.overWriteCheckpoint()
+//    optimizer.overWriteCheckpoint()
 
     if (param.summaryDir.isDefined) {
       val trainSummary = TrainSummary(param.summaryDir.get, param.jobName)
@@ -211,10 +254,6 @@ object Train {
     }
     optimizer
       .setOptimMethod(optimMethod)
-      .setValidation(Trigger.severalIteration(param.checkIter),
-        valSet.asInstanceOf[DataSet[MiniBatch[Float]]],
-        Array(new MeanAveragePrecision(use07metric = true, normalized = false,
-          nClass = param.classNumber)))
       .setEndWhen(endTrigger)
       .optimize()
   }

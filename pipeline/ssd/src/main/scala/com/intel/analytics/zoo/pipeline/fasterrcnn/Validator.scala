@@ -35,7 +35,8 @@ import org.apache.spark.rdd.RDD
 class Validator(model: Module[Float],
   preProcessParam: PreProcessParam,
   postPrecessParam: PostProcessParam,
-  evaluator: ValidationMethod[Float]) {
+  evaluator: ValidationMethod[Float],
+  shareMemory: Boolean = true) {
   val preProcessor = RecordToFeature(true) ->
     BytesToMat() ->
     AspectScale(preProcessParam.scales(0), preProcessParam.scaleMultipleOf) ->
@@ -43,7 +44,7 @@ class Validator(model: Module[Float],
     FrcnnToBatch(preProcessParam.batchSize, true, Some(preProcessParam.nPartition))
 
 
-  ModuleUtil.shareMemory(model)
+  if (shareMemory) ModuleUtil.shareMemory(model)
 
 
   val postprocessor = Utils.getNamedModules(model)
@@ -55,7 +56,7 @@ class Validator(model: Module[Float],
   postprocessor.thresh = postPrecessParam.thresh
 
 
-  def test(rdd: RDD[SSDByteRecord]): Unit = {
+  def test(rdd: RDD[SSDByteRecord]): Float = {
     Validator.test(rdd, model, preProcessor, evaluator)
   }
 }
@@ -65,7 +66,7 @@ object Validator {
 
   def test(rdd: RDD[SSDByteRecord], model: Module[Float],
     preProcessor: Transformer[SSDByteRecord, FrcnnMiniBatch],
-    evaluator: ValidationMethod[Float]): Unit = {
+    evaluator: ValidationMethod[Float]): Float = {
     model.evaluate()
     val broadcastModel = ModelBroadcast().broadcast(rdd.sparkContext, model)
     val broadcastEvaluator = rdd.sparkContext.broadcast(evaluator)
@@ -88,5 +89,6 @@ object Validator {
     logger.info(s"[Prediction] ${recordsNum.value} in $totalTime seconds. Throughput is ${
       recordsNum.value / totalTime
     } record / sec")
+    output.result()._1
   }
 }

@@ -18,7 +18,9 @@
 package com.intel.analytics.zoo.pipeline.fasterrcnn.model
 
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
+import com.intel.analytics.bigdl.utils.T
 
+@SerialVersionUID(- 1034404264513454995L)
 abstract class FasterRcnnParam extends Serializable {
   val ratios: Array[Float]
   val scales: Array[Float]
@@ -51,9 +53,6 @@ abstract class FasterRcnnParam extends Serializable {
   // Normalize the targets using "precomputed" (or made up) means and stdevs
   // (BBOX_NORMALIZE_TARGETS must also be true)
   var BBOX_NORMALIZE_TARGETS_PRECOMPUTED = true
-  val BBOX_NORMALIZE_MEANS = Tensor(Storage(Array(0.0f, 0.0f, 0.0f, 0.0f)))
-  val BBOX_NORMALIZE_STDS = Tensor(Storage(Array(0.1f, 0.1f, 0.2f, 0.2f)))
-
   // IOU >= thresh: positive example
   val RPN_POSITIVE_OVERLAP = 0.7
   // IOU < thresh: negative example
@@ -90,8 +89,8 @@ abstract class FasterRcnnParam extends Serializable {
 }
 
 object FasterRcnnParam {
-  val BBOX_NORMALIZE_MEANS = Tensor(Storage(Array(0.0f, 0.0f, 0.0f, 0.0f)))
-  val BBOX_NORMALIZE_STDS = Tensor(Storage(Array(0.1f, 0.1f, 0.2f, 0.2f)))
+  val BBOX_NORMALIZE_MEANS = Tensor[Float](T(0.0f, 0.0f, 0.0f, 0.0f))
+  val BBOX_NORMALIZE_STDS = Tensor[Float](T(0.1f, 0.1f, 0.2f, 0.2f))
 }
 
 
