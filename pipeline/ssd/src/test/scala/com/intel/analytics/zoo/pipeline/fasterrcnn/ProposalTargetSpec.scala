@@ -185,7 +185,7 @@ class ProposalTargetSpec extends FlatSpec with Matchers{
 
   "proposal target" should "work properly" in {
     val layer = ProposalTarget(VggParam(), 21)
-    layer.debug = true
+    layer.setDebug(true)
     val rpnRois = Tensor(Storage(Array(0.0, 0.0, 140.13168335, 195.587539673, 203.678405762,
       0.0, 10.1558227539, 122.821655273, 289.163665771, 155.377593994,
       0.0, 0.0, 162.800170898, 155.978851318, 199.270751953,

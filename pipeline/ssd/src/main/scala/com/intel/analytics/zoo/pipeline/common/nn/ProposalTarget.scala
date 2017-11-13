@@ -56,25 +56,30 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     if (param.BBOX_NORMALIZE_TARGETS_PRECOMPUTED) {
       // Optionally normalize targets by a precomputed mean and stdev
       for (r <- 1 to targets.size(1)) {
-        targets(r).add(-1, param.BBOX_NORMALIZE_MEANS)
-        targets(r).cdiv(param.BBOX_NORMALIZE_STDS)
+        targets(r).add(-1, FasterRcnnParam.BBOX_NORMALIZE_MEANS)
+        targets(r).cdiv(FasterRcnnParam.BBOX_NORMALIZE_STDS)
       }
     }
     BboxUtil.horzcat(labels.resize(labels.nElement(), 1), targets)
   }
 
 
-  var debug = false
-  // Fraction of minibatch that is labeled foreground (i.e. class > 0)
-  val FG_FRACTION = 0.25
-  val rois_per_image = param.BATCH_SIZE
-  val fgRoisPerImage = round(FG_FRACTION * param.BATCH_SIZE).toInt
+  private var debug = false
+  def setDebug(isDebug: Boolean): this.type = {
+    debug = isDebug
+    this
+  }
 
-  var fgRoisPerThisImage = 0
-  var bgRoisPerThisImage = 0
+  // Fraction of minibatch that is labeled foreground (i.e. class > 0)
+  private val FG_FRACTION = 0.25
+  private val rois_per_image = param.BATCH_SIZE
+  private val fgRoisPerImage = round(FG_FRACTION * param.BATCH_SIZE).toInt
+
+  private var fgRoisPerThisImage = 0
+  private var bgRoisPerThisImage = 0
 
   // Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
-  val FG_THRESH = 0.5f
+  private val FG_THRESH = 0.5f
 
   private def selectForeGroundRois(maxOverlaps: Tensor[Float]): Array[Int] = {
     // Select foreground RoIs as those with >= FG_THRESH overlap

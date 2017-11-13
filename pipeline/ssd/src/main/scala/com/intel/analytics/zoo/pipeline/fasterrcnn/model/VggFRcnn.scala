@@ -65,6 +65,7 @@ object VggFRcnn {
 
   val rpnPreNmsTopNTest = 6000
   val rpnPostNmsTopNTest = 300
+  var debug = false
 
   def apply(nClass: Int, postProcessParam: PostProcessParam): Module[Float] = {
     val param = VggParam()
@@ -90,7 +91,7 @@ object VggFRcnn {
       .inputs(rpn_cls_prob_reshape, rpn_bbox_pred, imInfo)
 
 
-    val roi_data = ProposalTarget(VggParam(), nClass).setName("roi-data")
+    val roi_data = ProposalTarget(VggParam(), nClass).setName("roi-data").setDebug(debug)
       .inputs(proposal, gt)
     val roi = SelectTable(1).setName("roi").inputs(roi_data)
     // val (clsProb, bboxPred) = fastRcnn(vgg, rpnNet)
@@ -100,18 +101,18 @@ object VggFRcnn {
     val fc6 = Linear(512 * pool * pool, 4096).setName("fc6").inputs(reshape)
     val reLU6 = ReLU().inputs(fc6)
     val dropout6 = Dropout().setName("drop6").inputs(reLU6)
-    val fc7 = Linear(4096, 4096).setName("fc7").inputs(dropout6)
-// val fc7 = Linear(4096, 4096).setName("fc7").inputs(reLU6)
+    val fc7 = if (!debug) Linear(4096, 4096).setName("fc7").inputs(dropout6)
+    else Linear(4096, 4096).setName("fc7").inputs(reLU6)
     val reLU7 = ReLU().inputs(fc7)
     val dropout7 = Dropout().setName("drop7").inputs(reLU7)
-    val cls_score = Linear(4096, 21).setName("cls_score").inputs(dropout7)
-// val cls_score = Linear(4096, 21).setName("cls_score").inputs(reLU7)
+    val cls_score = if (!debug) Linear(4096, 21).setName("cls_score").inputs(dropout7)
+    else Linear(4096, 21).setName("cls_score").inputs(reLU7)
     val cls_prob = EvaluateOnly(SoftMax().setName("cls_prob")).inputs(cls_score)
-    val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
-// val bbox_pred = Linear(4096, 84).setName("bbox_pred").inputs(reLU7)
+    val bbox_pred = if (!debug) Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
+    else Linear(4096, 84).setName("bbox_pred").inputs(reLU7)
 
     // Training part
-    val rpn_data = AnchorTarget(VggParam()).setName("rpn-data")
+    val rpn_data = AnchorTarget(VggParam()).setName("rpn-data").setDebug(debug)
       .inputs(rpn_cls_score, gt, imInfo, data)
 
     val detectionOut = FrcnnPostprocessor(postProcessParam.nmsThresh, postProcessParam.nClasses,

@@ -47,7 +47,7 @@ class AnchorTarget(param: FasterRcnnParam)
    *
    * @return
    */
-  def computeTargets(exRois: Tensor[Float], gtBoxes: Tensor[Float],
+  private def computeTargets(exRois: Tensor[Float], gtBoxes: Tensor[Float],
     insideAnchorsGtOverlaps: Tensor[Float]): Tensor[Float] = {
     val gtRois = BboxUtil.selectTensor(gtBoxes,
       BboxUtil.argmax2(insideAnchorsGtOverlaps, 2), 1)
@@ -67,7 +67,7 @@ class AnchorTarget(param: FasterRcnnParam)
       anchorTool = new Anchor(param.scales, param.ratios)
     }
     // 1. Generate proposals from bbox deltas and shifted anchors
-    totalAnchors = featureH * featureW * param.anchorNum
+    val totalAnchors = featureH * featureW * param.anchorNum
     logger.info(s"totalAnchors: $totalAnchors")
     val allAnchors = anchorTool.generateAnchors(featureW, featureH)
     // keep only inside anchors
@@ -80,7 +80,7 @@ class AnchorTarget(param: FasterRcnnParam)
     (indsInside, insideAnchors, totalAnchors)
   }
 
-  var totalAnchors: Int = 0
+//  var totalAnchors: Int = 0
 
 
   /**
@@ -197,7 +197,11 @@ class AnchorTarget(param: FasterRcnnParam)
     labels
   }
 
-  var debug = false
+  private var debug = false
+  def setDebug(isDebug: Boolean): this.type = {
+    debug = isDebug
+    this
+  }
 
   def sampleLabels(labels: Tensor[Float]): Tensor[Float] = {
     // subsample positive labels if we have too many

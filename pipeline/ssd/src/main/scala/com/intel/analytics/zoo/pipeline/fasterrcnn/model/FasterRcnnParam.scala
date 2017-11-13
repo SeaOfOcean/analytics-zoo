@@ -89,6 +89,12 @@ abstract class FasterRcnnParam extends Serializable {
   val modelType: String
 }
 
+object FasterRcnnParam {
+  val BBOX_NORMALIZE_MEANS = Tensor(Storage(Array(0.0f, 0.0f, 0.0f, 0.0f)))
+  val BBOX_NORMALIZE_STDS = Tensor(Storage(Array(0.1f, 0.1f, 0.2f, 0.2f)))
+}
+
+
 
 
 

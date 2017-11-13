@@ -21,7 +21,7 @@ import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.SGD
-import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
+import com.intel.analytics.zoo.pipeline.common.nn.{AnchorTarget, FrcnnCriterion, ProposalTarget}
 import com.intel.analytics.zoo.pipeline.ssd.TestUtil
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -367,6 +367,7 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
       7.687687683105468750e+01,
       3.915915832519531250e+02)
       .map(_.toFloat))).resize(3, 7)
+    VggFRcnn.debug = true
     val frcnn = Module.loadCaffe(VggFRcnn(21,
       PostProcessParam(0.3f, 21, false, -1, 0)),
       "/home/jxy/data/caffeModels/vgg16/test.prototxt",
@@ -407,7 +408,7 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_labels").apply1(x => if(x != -1) x+1 else x),
       frcnn("rpn-data").get.output.toTable[Tensor[Float]](1), "rpn_labels", 1e-3)
     TestUtil.assertEqual2(TestUtil.loadFeatures("rpn_bbox_targets"),
-      frcnn("rpn-data").get.output.toTable[Tensor[Float]](3), "rpn_bbox_targets", 1e-3)
+      frcnn("rpn-data").get.output.toTable[Tensor[Float]](2), "rpn_bbox_targets", 1e-3)
 
     TestUtil.assertEqual("pool5", frcnn("pool5").get.output.toTensor[Float], 1e-5)
 
@@ -429,8 +430,10 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     frcnn.backward(input, criterion.gradInput)
     TestUtil.assertEqual2(TestUtil.loadFeatures("pool5diff").resize(128, 25088),
       frcnn("fc6").get.gradInput.toTensor[Float], "pool5diff", 1e-5)
-    TestUtil.assertEqual2(TestUtil.loadFeatures("fc7diff"),
-      frcnn("fc7").get.gradInput.toTensor[Float], "relu6", 1e-5)
+    TestUtil.assertEqual2(TestUtil.loadFeatures("pool4diff"),
+      frcnn("conv5_1").get.gradInput.toTensor[Float], "pool4diff", 1e-5)
+//    TestUtil.assertEqual2(TestUtil.loadFeatures("fc7diff"),
+//      frcnn("fc7").get.gradInput.toTensor[Float], "relu6", 1e-5)
     println(s"loss: ${criterion.output}")
   }
 
@@ -444,5 +447,15 @@ class VggFRcnnSpec extends FlatSpec with Matchers {
     t(10) = "10"
 
     println(t)
+  }
+
+  "tile" should "work" in {
+    val tensor = Tensor[Float](T(0.1, 0.1, 0.2, 0.2))
+    val expand = tensor.reshape(Array(1, 4)).expand(Array(21, 4))
+    println(expand)
+    println(expand.isContiguous())
+//    println(expand.reshape(Array(expand.nElement())))
+    println(tensor)
+
   }
 }

@@ -20,7 +20,7 @@ import com.intel.analytics.bigdl.nn.{Graph, Module}
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.Validator
-import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{PostProcessParam, PreProcessParam, VggFRcnn}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{FasterRcnnParam, PostProcessParam, PreProcessParam, VggFRcnn}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
 import scopt.OptionParser
@@ -41,7 +41,8 @@ object Test {
     nClass: Int = 21,
     batch: Int = 1,
     nPartition: Int = -1,
-    isProtobuf: Boolean = true)
+    isProtobuf: Boolean = true,
+    isNormalize: Boolean = false)
 
   val testParamParser = new OptionParser[TestParam]("Spark-DL Test") {
     head("Spark-DL Test")
@@ -80,6 +81,9 @@ object Test {
     opt[Boolean]("protobuf")
       .text("is model saved with protobuf")
       .action((x, c) => c.copy(isProtobuf = x))
+    opt[Boolean]("isNormalize")
+      .text("is model normalized")
+      .action((x, c) => c.copy(isNormalize = x))
   }
 
   def main(args: Array[String]) {
@@ -114,6 +118,16 @@ object Test {
           throw new Exception("unsupport network")
       }
 
+      if (params.isNormalize) {
+        val means = FasterRcnnParam.BBOX_NORMALIZE_MEANS.reshape(Array(1, 4))
+          .expand(Array(params.nClass, 4)).reshape(Array(params.nClass * 4))
+        val stds = FasterRcnnParam.BBOX_NORMALIZE_STDS.reshape(Array(1, 4))
+          .expand(Array(params.nClass, 4)).reshape(Array(params.nClass * 4))
+        val bboxPred = model("bbox_pred").get
+        val wbs = bboxPred.getWeightsBias()
+        wbs(0).cmul(stds.reshape(Array(params.nClass * 4, 1)).expand(Array(params.nClass * 4, wbs(0).size(2))))
+        wbs(1).cmul(stds).add(1, means)
+      }
       val validator = new Validator(model, preParam, postParam, evaluator)
       validator.test(rdd._1)
       sc.stop()
