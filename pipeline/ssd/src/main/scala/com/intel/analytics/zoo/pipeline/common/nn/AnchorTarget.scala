@@ -27,7 +27,6 @@ import org.apache.log4j.Logger
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
-import AnchorTarget.logger
 
 
 object AnchorTarget {
@@ -53,10 +52,6 @@ class AnchorTarget(param: FasterRcnnParam)
       BboxUtil.argmax2(insideAnchorsGtOverlaps, 2), 1)
     require(exRois.size(1) == gtRois.size(1))
     require(exRois.size(2) == 4)
-//    require(gtRois.size(2) == 5)
-//    println("exRois=========\n", exRois)
-
- //   println("gtRois==========\n", gtRois)
     BboxUtil.bboxTransform(exRois, gtRois)
   }
 
@@ -68,20 +63,15 @@ class AnchorTarget(param: FasterRcnnParam)
     }
     // 1. Generate proposals from bbox deltas and shifted anchors
     val totalAnchors = featureH * featureW * param.anchorNum
-//    logger.info(s"totalAnchors: $totalAnchors")
     val allAnchors = anchorTool.generateAnchors(featureW, featureH)
     // keep only inside anchors
     val indsInside = getIndsInside(imgW, imgH, allAnchors, 0)
-//    logger.info(s"indsInside: ${indsInside.length}")
     val insideAnchors = Tensor[Float](indsInside.length, 4)
     indsInside.zip(Stream.from(1)).foreach(i => {
       insideAnchors.update(i._2, allAnchors(i._1))
     })
     (indsInside, insideAnchors, totalAnchors)
   }
-
-//  var totalAnchors: Int = 0
-
 
   /**
    * Algorithm:
@@ -117,8 +107,6 @@ class AnchorTarget(param: FasterRcnnParam)
     // map up to original set of anchors
     // mapUpToOriginal(labels, bboxTargets, bboxInsideWeights, bboxOutSideWeights, indsInside)
     labels = unmap(labels, totalAnchors, indsInside, -1)
-//    println("after unmap ==========")
- //   println(Tensor.sparse(labels + 1))
     bboxTargets = unmap(bboxTargets, totalAnchors, indsInside, 0)
     bboxInsideWeights = unmap(bboxInsideWeights, totalAnchors, indsInside, 0)
     bboxOutSideWeights = unmap(bboxOutSideWeights, totalAnchors, indsInside, 0)
@@ -127,7 +115,6 @@ class AnchorTarget(param: FasterRcnnParam)
       .transpose(2, 3).transpose(2, 4).reshape(Array(1, 1, anchorNum * featureH, featureW))
       .apply1(x => if (x == -1) -1 else x + 1f)
 
- //   print2d(labels.clone().resize(anchorNum * featureH, featureW))
     bboxTargets = bboxTargets.reshape(Array(1, featureH, featureW, anchorNum * 4))
       .transpose(2, 3).transpose(2, 4)
     bboxInsideWeights = bboxInsideWeights.reshape(Array(1, featureH, featureW, anchorNum * 4))
@@ -138,14 +125,6 @@ class AnchorTarget(param: FasterRcnnParam)
     output.update(2, bboxTargets.contiguous())
     output.update(3, bboxInsideWeights.contiguous())
     output.update(4, bboxOutSideWeights.contiguous())
-  }
-
-  def print2d(t: Tensor[Float]): Unit = {
-    (1 to t.size(1)).foreach(r => {
-      (1 to t.size(2)).foreach(c => {
-        if (t.valueAt(r, c) != -1) println(r, c, t.valueAt(r, c))
-      })
-    })
   }
 
   // label: 1 is positive, 0 is negative, -1 is don't care
@@ -214,9 +193,7 @@ class AnchorTarget(param: FasterRcnnParam)
         fgInds.toList.slice(0, fgInds.length - numFg.toInt)
       }
       disableInds.foreach(x => labels.update(x, -1))
-//      logger.info(s"${disableInds.length} fg inds are disabled")
     }
-//    logger.info(s"fg: ${fgInds.length}")
 
     // subsample negative labels if we have too many
     val numBg = param.RPN_BATCHSIZE - fgInds.length
@@ -225,8 +202,6 @@ class AnchorTarget(param: FasterRcnnParam)
       val disableInds = if (!debug) Random.shuffle(bgInds).take(bgInds.length - numBg.toInt)
       else bgInds.slice(0, bgInds.length - numBg.toInt)
       disableInds.foreach(x => labels.setValue(x, -1))
-//      logger.info(s"bgInds ${bgInds.length}, ${disableInds.length} bg inds are disabled, " +
-//        s"now ${(1 to labels.size(1)).count(x => labels.valueAt(x) == 0)} inds")
     }
     labels
   }
@@ -270,22 +245,6 @@ class AnchorTarget(param: FasterRcnnParam)
     bboxOutSideWeights
   }
 
-
-  /**
-   * map up to original set of anchors
-   */
-//  def mapUpToOriginal(labels: Tensor[Float],
-//    bboxTargets: Tensor[Float],
-//    bboxInsideWeights: Tensor[Float],
-//    bboxOutSideWeights: Tensor[Float],
-//    indsInside: Array[Int]): (Tensor[Float], Tensor[Float], Tensor[Float], Tensor[Float]) = {
-//    val labels2 = unmap(labels, totalAnchors, indsInside, -1)
-//    val bboxTargets2 = unmap(bboxTargets, totalAnchors, indsInside, 0)
-//    val bboxInsideWeights2 = unmap(bboxInsideWeights, totalAnchors, indsInside, 0)
-//    val bboxOutSideWeights2 = unmap(bboxOutSideWeights, totalAnchors, indsInside, 0)
-//
-//    (labels2, bboxTargets2, bboxInsideWeights2, bboxOutSideWeights2)
-//  }
 
   def getIndsInside(width: Int, height: Int,
     allAnchors: Tensor[Float], allowedBorder: Float): Array[Int] = {

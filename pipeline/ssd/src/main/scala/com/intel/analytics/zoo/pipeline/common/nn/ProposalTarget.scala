@@ -85,8 +85,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     // Select foreground RoIs as those with >= FG_THRESH overlap
     var fgInds = Array.range(1, maxOverlaps.nElement() + 1)
       .filter(i => maxOverlaps.valueAt(i, 1) >= FG_THRESH)
-//    var fgInds = maxOverlaps.storage().array().zip(Stream from 1)
-//      .filter(x => x._1 >= FG_THRESH).map(x => x._2)
     // Guard against the case when an image has fewer than fg_rois_per_image
     // foreground RoIs
     fgRoisPerThisImage = Math.min(fgRoisPerImage, fgInds.length)
@@ -98,7 +96,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         Random.shuffle(fgInds.toList).slice(0, fgRoisPerThisImage).toArray
       }
     }
-    // println("fgInds: ============\n", fgInds.mkString(", "))
     fgInds
   }
 
@@ -107,9 +104,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     var bgInds = Array.range(1, maxOverlaps.nElement() + 1)
       .filter(i => (maxOverlaps.valueAt(i, 1) < param.BG_THRESH_HI) &&
         (maxOverlaps.valueAt(i, 1) >= param.BG_THRESH_LO))
-//    var bgInds = maxOverlaps.storage().array().zip(Stream from 1)
-//      .filter(x => (x._1 < param.BG_THRESH_HI) && (x._1 >= param.BG_THRESH_LO))
-//      .map(x => x._2)
     // Compute number of background RoIs to take from this image (guarding
     // against there being fewer than desired)
     bgRoisPerThisImage = Math.min(rois_per_image - fgRoisPerThisImage, bgInds.length)
@@ -121,7 +115,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         Random.shuffle(bgInds.toList).slice(0, bgRoisPerThisImage).toArray
       }
     }
-    // println(bgInds.mkString(", "))
     bgInds
   }
 
@@ -173,13 +166,8 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
         .narrow(2, FrcnnMiniBatch.x1Index, 4),
       labels)
 
-//    println("bboxTargetData =============", Tensor.sparse(bboxTargetData))
-
     val (bboxTarget, bboxInsideWeights) =
       BboxUtil.getBboxRegressionLabels(bboxTargetData, numClasses)
-//    printSparse(bboxTarget)
- //   println(Tensor.sparse(bboxTarget))
- //   println(Tensor.sparse(bboxInsideWeights))
     (labels.squeeze(), sampledRois, bboxTarget, bboxInsideWeights)
   }
 
@@ -205,8 +193,6 @@ class ProposalTarget(param: FasterRcnnParam, numClasses: Int)
     val (labels, rois, bbox_targets, bboxInsideWeights) = sampleRois(roisPlusGts, gts)
 
     if (output.length() == 0) {
-      // bbox_targets (1, numClasses * 4) + bbox_inside_weights (1, numClasses * 4)
-      // + bbox_outside_weights (1, numClasses * 4)
       bboxInsideWeights.apply1(x => {
         if (x > 0) 1f else 0f
       })
