@@ -42,7 +42,7 @@ object Option {
     trainFolder: String = "./",
     valFolder: String = "./",
     modelType: String = "vgg16",
-    caffeDefPath: Option[String] = None,
+    pretrain: String = "",
     caffeModelPath: Option[String] = None,
     optim: String = "sgd",
     checkpoint: Option[String] = None,
@@ -72,12 +72,9 @@ object Option {
       .text("net type : vgg16")
       .action((x, c) => c.copy(modelType = x))
       .required()
-    opt[String]("caffeDefPath")
-      .text("caffe prototxt")
-      .action((x, c) => c.copy(caffeDefPath = Some(x)))
-    opt[String]("caffeModelPath")
-      .text("caffe model path")
-      .action((x, c) => c.copy(caffeModelPath = Some(x)))
+    opt[String]("pretrain")
+      .text("pretrained imagenet model")
+      .action((x, c) => c.copy(pretrain = x))
     opt[String]("model")
       .text("model snapshot location")
       .action((x, c) => c.copy(modelSnapshot = Some(x)))
@@ -147,16 +144,27 @@ object Train {
           val postParam = PostProcessParam(0.3f, param.classNumber, false, 100, 0.05)
           val preParamTrain = PreProcessParam(param.batchSize, Array(400, 500, 600, 700))
           val preParamVal = PreProcessParam(param.batchSize, nPartition = param.batchSize)
-          // todo: use bigdl model directly
-          val model = Module.loadCaffe(VggFRcnn(param.classNumber, postParam),
-            param.caffeDefPath.get, param.caffeModelPath.get)
+          val model = if (param.modelSnapshot.isDefined) {
+            Module.load[Float](param.modelSnapshot.get)
+          } else {
+            val pretrain = Module.loadModule[Float](param.pretrain)
+            val model = VggFRcnn(param.classNumber, postParam)
+            model.loadModelWeights(pretrain, false)
+          }
           (model, preParamTrain, preParamVal, postParam)
         case "pvanet" =>
           val postParam = PostProcessParam(0.4f, param.classNumber, true, 100, 0.05)
           val preParamTrain = PreProcessParam(param.batchSize, Array(640), 32)
           val preParamVal = PreProcessParam(param.batchSize, Array(640), 32)
-          val model = Module.loadCaffe(PvanetFRcnn(param.classNumber, postParam),
-            param.caffeDefPath.get, param.caffeModelPath.get)
+//          val model = Module.loadCaffe(PvanetFRcnn(param.classNumber, postParam),
+//            param.caffeDefPath.get, param.caffeModelPath.get)
+          val model = if (param.modelSnapshot.isDefined) {
+            Module.load[Float](param.modelSnapshot.get)
+          } else {
+            val pretrain = Module.loadModule[Float](param.pretrain)
+            val model = PvanetFRcnn(param.classNumber, postParam)
+            model.loadModelWeights(pretrain, false)
+          }
           (model, preParamTrain, preParamVal, postParam)
         case _ =>
           throw new Exception("unsupport network")
