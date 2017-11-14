@@ -57,7 +57,7 @@ object Option {
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
     summaryDir: Option[String] = None,
-    checkEpoch: Int = 1,
+    checkIter: Int = 200,
     share: Boolean = true
   )
 
@@ -110,9 +110,9 @@ object Option {
     opt[Int]("classNum")
       .text("class number")
       .action((x, c) => c.copy(classNumber = x))
-    opt[Int]("checkEpoch")
+    opt[Int]("checkIter")
       .text("checkpoint epoch")
-      .action((x, c) => c.copy(checkEpoch = x))
+      .action((x, c) => c.copy(checkIter = x))
     opt[String]("name")
       .text("job name")
       .action((x, c) => c.copy(jobName = x))
@@ -165,7 +165,7 @@ object Train {
 
       val trainSet = Utils.loadTrainSet(param.trainFolder, sc, preParamTrain, param.batchSize)
 
-      val valSet = IOUtils.loadSeqFiles(param.batchSize, param.valFolder, sc)._1
+      val valSet = Utils.loadValSet(param.valFolder, sc, preParamVal, param.batchSize)
 
       val optimMethod = if (param.stateSnapshot.isDefined) {
         OptimMethod.load[Float](param.stateSnapshot.get)
@@ -186,51 +186,15 @@ object Train {
         }
       }
 
-      val epochStep = param.checkEpoch
+      optimize(model, trainSet, valSet, param, optimMethod,
+        Trigger.maxEpoch(param.maxEpoch), new FrcnnCriterion())
 
-      val evaluator = new MeanAveragePrecision(true, normalized = false,
-        nClass = param.classNumber)
-      val validator = new Validator(model, preParamVal, postParam, evaluator, shareMemory = false)
-
-      val validationSummary = if (param.summaryDir.isDefined)
-        ValidationSummary(param.summaryDir.get, param.jobName) else null
-
-      val means = FasterRcnnParam.BBOX_NORMALIZE_MEANS.reshape(Array(1, 4))
-        .expand(Array(param.classNumber, 4)).reshape(Array(param.classNumber * 4))
-      val stds = FasterRcnnParam.BBOX_NORMALIZE_STDS.reshape(Array(1, 4))
-        .expand(Array(param.classNumber, 4)).reshape(Array(param.classNumber * 4))
-
-      (param.startEpoch to param.maxEpoch by epochStep).map { epoch =>
-        optimize(model, trainSet, param, optimMethod,
-          Trigger.maxEpoch(epochStep), new FrcnnCriterion())
-        val map = validate(model, validator, param.classNumber, means, stds, valSet, param.checkpoint, epoch)
-        if (null != validationSummary) validationSummary.addScalar("Mean Average Precision", map, epoch)
-      }
     })
   }
 
-  private def validate(model: Module[Float], validator: Validator,
-    classNumber: Int, means: Tensor[Float], stds: Tensor[Float], rdd: RDD[SSDByteRecord],
-    checkpoint: Option[String], epoch: Int): Float = {
-    val bboxPred = model("bbox_pred").get
-    val wbs = bboxPred.getWeightsBias()
-    val originalWbs = wbs.clone()
-    wbs(0).cmul(stds.reshape(Array(classNumber * 4, 1))
-      .expand(Array(classNumber * 4, wbs(0).size(2))))
-    wbs(1).cmul(stds).add(1, means)
-    val map = validator.test(rdd)
-    if (checkpoint.isDefined) {
-      // todo: saveModule
-      model.save(checkpoint.get + "/" + epoch + s"epoch_${map}.model")
-    }
-    // restore net to original state
-    wbs(0).copy(originalWbs(0))
-    wbs(1).copy(originalWbs(1))
-    map
-  }
-
   private def optimize(model: Module[Float],
-    trainSet: DataSet[FrcnnMiniBatch], param: TrainParams, optimMethod: OptimMethod[Float],
+    trainSet: DataSet[FrcnnMiniBatch],
+    valSet: DataSet[FrcnnMiniBatch], param: TrainParams, optimMethod: OptimMethod[Float],
     endTrigger: Trigger,
     criterion: Criterion[Float]): Module[Float] = {
     val optimizer = Optimizer(
@@ -239,11 +203,11 @@ object Train {
       criterion = criterion
     )
 
-//    if (param.checkpoint.isDefined) {
-//      optimizer.setCheckpoint(param.checkpoint.get, Trigger.severalIteration(param.checkEpoch))
-//    }
+    if (param.checkpoint.isDefined) {
+      optimizer.setCheckpoint(param.checkpoint.get, Trigger.severalIteration(param.checkIter))
+    }
 
-//    optimizer.overWriteCheckpoint()
+    optimizer.overWriteCheckpoint()
 
     if (param.summaryDir.isDefined) {
       val trainSummary = TrainSummary(param.summaryDir.get, param.jobName)
@@ -254,6 +218,10 @@ object Train {
     }
     optimizer
       .setOptimMethod(optimMethod)
+      .setValidation(Trigger.severalIteration(param.checkIter),
+        valSet.asInstanceOf[DataSet[MiniBatch[Float]]],
+        Array(new MeanAveragePrecision(use07metric = true, normalized = false,
+          nClass = param.classNumber)))
       .setEndWhen(endTrigger)
       .optimize()
   }

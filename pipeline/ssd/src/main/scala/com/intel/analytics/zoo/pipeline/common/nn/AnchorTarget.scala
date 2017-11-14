@@ -68,11 +68,11 @@ class AnchorTarget(param: FasterRcnnParam)
     }
     // 1. Generate proposals from bbox deltas and shifted anchors
     val totalAnchors = featureH * featureW * param.anchorNum
-    logger.info(s"totalAnchors: $totalAnchors")
+//    logger.info(s"totalAnchors: $totalAnchors")
     val allAnchors = anchorTool.generateAnchors(featureW, featureH)
     // keep only inside anchors
     val indsInside = getIndsInside(imgW, imgH, allAnchors, 0)
-    logger.info(s"indsInside: ${indsInside.length}")
+//    logger.info(s"indsInside: ${indsInside.length}")
     val insideAnchors = Tensor[Float](indsInside.length, 4)
     indsInside.zip(Stream.from(1)).foreach(i => {
       insideAnchors.update(i._2, allAnchors(i._1))
@@ -214,9 +214,9 @@ class AnchorTarget(param: FasterRcnnParam)
         fgInds.toList.slice(0, fgInds.length - numFg.toInt)
       }
       disableInds.foreach(x => labels.update(x, -1))
-      logger.info(s"${disableInds.length} fg inds are disabled")
+//      logger.info(s"${disableInds.length} fg inds are disabled")
     }
-    logger.info(s"fg: ${fgInds.length}")
+//    logger.info(s"fg: ${fgInds.length}")
 
     // subsample negative labels if we have too many
     val numBg = param.RPN_BATCHSIZE - fgInds.length
@@ -225,8 +225,8 @@ class AnchorTarget(param: FasterRcnnParam)
       val disableInds = if (!debug) Random.shuffle(bgInds).take(bgInds.length - numBg.toInt)
       else bgInds.slice(0, bgInds.length - numBg.toInt)
       disableInds.foreach(x => labels.setValue(x, -1))
-      logger.info(s"bgInds ${bgInds.length}, ${disableInds.length} bg inds are disabled, " +
-        s"now ${(1 to labels.size(1)).count(x => labels.valueAt(x) == 0)} inds")
+//      logger.info(s"bgInds ${bgInds.length}, ${disableInds.length} bg inds are disabled, " +
+//        s"now ${(1 to labels.size(1)).count(x => labels.valueAt(x) == 0)} inds")
     }
     labels
   }

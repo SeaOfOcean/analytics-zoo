@@ -108,8 +108,8 @@ object VggFRcnn {
     val cls_score = if (!debug) Linear(4096, 21).setName("cls_score").inputs(dropout7)
     else Linear(4096, 21).setName("cls_score").inputs(reLU7)
     val cls_prob = EvaluateOnly(SoftMax().setName("cls_prob")).inputs(cls_score)
-    val bbox_pred = if (!debug) Linear(4096, 84).setName("bbox_pred").inputs(dropout7)
-    else Linear(4096, 84).setName("bbox_pred").inputs(reLU7)
+    val bbox_pred = if (!debug) BboxPred(4096, 84, nClass = 21).setName("bbox_pred").inputs(dropout7)
+    else BboxPred(4096, 84, nClass = 21).setName("bbox_pred").inputs(reLU7)
 
     // Training part
     val rpn_data = AnchorTarget(VggParam()).setName("rpn-data").setDebug(debug)
