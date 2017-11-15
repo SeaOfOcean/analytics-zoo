@@ -22,18 +22,15 @@ import com.intel.analytics.bigdl.dataset.MiniBatch
 import com.intel.analytics.bigdl.nn.{Module, SpatialShareConvolution}
 import com.intel.analytics.bigdl.optim.{Optimizer, _}
 import com.intel.analytics.bigdl.pipeline.fasterrcnn.Utils
-import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.utils.{Engine, LoggerFilter}
 import com.intel.analytics.bigdl.visualization.{TrainSummary, ValidationSummary}
 import com.intel.analytics.zoo.pipeline.common.{IOUtils, MeanAveragePrecision}
-import com.intel.analytics.zoo.pipeline.common.dataset.roiimage.SSDByteRecord
 import com.intel.analytics.zoo.pipeline.common.nn.FrcnnCriterion
-import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnMiniBatch, Validator}
+import com.intel.analytics.zoo.pipeline.fasterrcnn.{FrcnnMiniBatch}
 import com.intel.analytics.zoo.pipeline.fasterrcnn.model.{VggFRcnn, _}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
-import org.apache.spark.rdd.RDD
 import scopt.OptionParser
 
 object Option {
@@ -51,9 +48,8 @@ object Option {
     classNumber: Int = 21,
     batchSize: Int = -1,
     learningRate: Double = 0.001,
-    learningRateDecay: Double = 0.1,
-    startEpoch: Int = 1,
-    maxEpoch: Int = 50,
+    step: Int = 50000,
+    maxIter: Int = 50,
     weights: Option[String] = None,
     jobName: String = "BigDL SSD Train Example",
     summaryDir: Option[String] = None,
@@ -87,16 +83,16 @@ object Option {
     opt[String]("checkpoint")
       .text("where to cache the model")
       .action((x, c) => c.copy(checkpoint = Some(x)))
-    opt[Int]('e', "maxEpoch")
-      .text("epoch numbers")
-      .action((x, c) => c.copy(maxEpoch = x))
+    opt[Int]("step")
+      .text("step to decay learning rate")
+      .action((x, c) => c.copy(step = x))
+    opt[Int]('i', "maxIter")
+      .text("iteration numbers")
+      .action((x, c) => c.copy(maxIter = x))
     opt[Double]('l', "learningRate")
       .text("inital learning rate")
       .action((x, c) => c.copy(learningRate = x))
       .required()
-    opt[Double]('d', "learningRateDecay")
-      .text("learning rate decay")
-      .action((x, c) => c.copy(learningRateDecay = x))
     opt[String]("optim")
       .text("optim method")
       .action((x, c) => c.copy(optim = x))
@@ -108,7 +104,7 @@ object Option {
       .text("class number")
       .action((x, c) => c.copy(classNumber = x))
     opt[Int]("checkIter")
-      .text("checkpoint epoch")
+      .text("checkpoint iteration")
       .action((x, c) => c.copy(checkIter = x))
     opt[String]("name")
       .text("job name")
@@ -180,7 +176,7 @@ object Train {
       } else {
         param.optim match {
           case "sgd" =>
-            val learningRateSchedule = SGD.Step(50000, 0.1)
+            val learningRateSchedule = SGD.Step(param.step, 0.1)
             new SGD[Float](
               learningRate = param.learningRate,
               momentum = 0.9,
@@ -195,7 +191,7 @@ object Train {
       }
 
       optimize(model, trainSet, valSet, param, optimMethod,
-        Trigger.maxEpoch(param.maxEpoch), new FrcnnCriterion())
+        Trigger.maxIteration(param.maxIter), new FrcnnCriterion())
 
     })
   }
