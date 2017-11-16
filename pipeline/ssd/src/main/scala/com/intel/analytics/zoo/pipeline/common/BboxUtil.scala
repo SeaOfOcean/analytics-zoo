@@ -347,7 +347,7 @@ object BboxUtil {
 
   def featureToString(imageFeat: ImageFeature, key: String, toInt: Boolean = true): String = {
     val feature = imageFeat[Tensor[Float]](key)
-    resultToString(feature, imageFeat[String](ImageFeature.uri))
+    resultToString(feature, imageFeat.uri())
   }
 
   // decode batch

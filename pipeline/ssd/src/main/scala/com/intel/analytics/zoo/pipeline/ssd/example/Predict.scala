@@ -173,7 +173,7 @@ object Predict {
 
         output.rdd.foreach(feature => {
           val decoded = BboxUtil.decodeRois(feature[Tensor[Float]](featureKey))
-          Visualizer.visDetection(feature[String](ImageFeature.uri), decoded, classNames, outPath = params.outputFolder)
+          Visualizer.visDetection(feature.uri(), decoded, classNames, outPath = params.outputFolder)
         })
         logger.info(s"labeled images are saved to ${params.outputFolder}")
       }
