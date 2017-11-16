@@ -18,6 +18,7 @@ package com.intel.analytics.zoo.pipeline.common
 
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
+import com.intel.analytics.zoo.transform.vision.image.ImageFeature
 import com.intel.analytics.zoo.transform.vision.label.roi.RoiLabel
 import com.intel.analytics.zoo.transform.vision.util.NormalizedBox
 import org.apache.log4j.Logger
@@ -342,6 +343,11 @@ object BboxUtil {
         }
       }).mkString("\n")
     }
+  }
+
+  def featureToString(imageFeat: ImageFeature, key: String, toInt: Boolean = true): String = {
+    val feature = imageFeat[Tensor[Float]](key)
+    resultToString(feature, imageFeat[String](ImageFeature.uri))
   }
 
   // decode batch

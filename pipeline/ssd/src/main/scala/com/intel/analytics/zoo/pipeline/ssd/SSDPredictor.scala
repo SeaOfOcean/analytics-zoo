@@ -23,7 +23,7 @@ import com.intel.analytics.zoo.pipeline.common.nn.DetectionOutput
 import com.intel.analytics.zoo.pipeline.common.{BboxUtil, ModuleUtil, Predictor, Transform}
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.zoo.pipeline.ssd.model.PreProcessParam
-import com.intel.analytics.zoo.transform.vision.image.{BytesToMat, ImageFeature, MatToFloats}
+import com.intel.analytics.zoo.transform.vision.image._
 import com.intel.analytics.zoo.transform.vision.image.augmentation.Resize
 import org.apache.spark.rdd.RDD
 
@@ -63,7 +63,8 @@ class SSDPredictor(
     Predictor.predict(transformed, model, postProcess)
   }
 
-  def predictWithFeature(rdd: RDD[ImageFeature]): RDD[ImageFeature] = {
+  def predictWithFeature(imageFrame: DistributedImageFrame, featureKey: String)
+  : DistributedImageFrame = {
     val preProcessor =
       BytesToMat() ->
       Resize(preProcessParam.resolution, preProcessParam.resolution) ->
@@ -72,8 +73,9 @@ class SSDPredictor(
           meanRGB = Some(preProcessParam.pixelMeanRGB))
     val toBatch = RoiImageToBatch(preProcessParam.batchSize, false,
       Some(preProcessParam.nPartition))
-    val transformed = Transform(rdd, preProcessor)
-    Predictor.predict(transformed, model, "rois", toBatch, postProcess)
+    val transformed = imageFrame(preProcessor)
+    val result = Predictor.predict(transformed.rdd, model, featureKey, toBatch, postProcess)
+    ImageFrame.rdd(result)
   }
 }
 

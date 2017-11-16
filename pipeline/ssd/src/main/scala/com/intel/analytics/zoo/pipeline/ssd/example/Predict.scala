@@ -26,8 +26,10 @@ import com.intel.analytics.zoo.pipeline.ssd._
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.Engine
 import com.intel.analytics.zoo.pipeline.ssd.model.PreProcessParam
+import com.intel.analytics.zoo.transform.vision.image.{Image, ImageFeature}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.SparkSession
 import scopt.OptionParser
 
 import scala.io.Source
@@ -40,7 +42,7 @@ object Predict {
 
   val logger = Logger.getLogger(getClass)
 
-  case class PascolVocDemoParam(imageFolder: String = "",
+  case class PascolVocDemoParam(imageLoc: String = "",
     outputFolder: String = "data/demo",
     folderType: String = "local",
     modelType: String = "vgg16",
@@ -53,13 +55,14 @@ object Predict {
     classname: String = "",
     resolution: Int = 300,
     topK: Option[Int] = None,
-    nPartition: Int = 1)
+    nPartition: Int = 1,
+    sql: String = "")
 
   val parser = new OptionParser[PascolVocDemoParam]("BigDL SSD Demo") {
     head("BigDL SSD Demo")
     opt[String]('f', "folder")
       .text("where you put the demo image data")
-      .action((x, c) => c.copy(imageFolder = x))
+      .action((x, c) => c.copy(imageLoc = x))
       .required()
     opt[String]("folderType")
       .text("local image folder or hdfs sequence folder")
@@ -113,19 +116,23 @@ object Predict {
       .text("number of partitions")
       .action((x, c) => c.copy(nPartition = x))
       .required()
+    opt[String]("sql")
+      .text("sql to query url")
+      .action((x, c) => c.copy(sql = x))
   }
 
   def main(args: Array[String]): Unit = {
     parser.parse(args, PascolVocDemoParam()).foreach { params =>
       val conf = Engine.createSparkConf().setAppName("BigDL SSD Demo")
       val sc = new SparkContext(conf)
+      val ss = SparkSession.builder().enableHiveSupport().getOrCreate()
       Engine.init
 
       val classNames = Source.fromFile(params.classname).getLines().toArray
 
       val model = if (params.model.isDefined) {
         // load BigDL model
-        Module.load[Float](params.model.get)
+        Module.loadModule[Float](params.model.get)
       } else if (params.caffeDefPath.isDefined && params.caffeModelPath.isDefined) {
         // load caffe dynamically
         SSDCaffeLoader.loadCaffe(params.caffeDefPath.get, params.caffeModelPath.get)
@@ -134,32 +141,29 @@ object Predict {
           s" loading BigDL model or caffe model")
       }
 
-      val (data, paths) = params.folderType match {
-        case "local" => IOUtils.loadLocalFolder(params.nPartition, params.imageFolder, sc)
-        case "seq" => IOUtils.loadSeqFiles(params.nPartition, params.imageFolder, sc)
-        case _ => throw new IllegalArgumentException(s"invalid folder name ${ params.folderType }")
+      val imageFrame = params.folderType match {
+        case "local" => Image.read(params.imageLoc, sc)
+        case "seq" => IOUtils.loadImageFrameFromSeq(params.nPartition, params.imageLoc, sc)
+        case "hbase" => IOUtils.loadImageFrameFromHbase(params.nPartition, params.imageLoc, params.sql, ss)
+        case _ => throw new IllegalArgumentException(s"invalid folder name ${params.folderType}")
       }
 
       val predictor = new SSDPredictor(model,
         PreProcessParam(params.batch, params.resolution, (123f, 117f, 104f), false, params.nPartition))
 
       val start = System.nanoTime()
-      val output = predictor.predict(data)
-      if (params.vis) output.cache()
+      val featureKey = "roi"
+      val output = predictor.predictWithFeature(imageFrame, featureKey)
 
       if (params.savetxt) {
-        output.zip(paths).map { case (res: Tensor[Float], path: String) =>
-          BboxUtil.resultToString(res, path)
+        output.rdd.map { feature => BboxUtil.featureToString(feature, featureKey)
         }.saveAsTextFile(params.outputFolder)
       } else {
-        output.count()
+        output.rdd.count()
       }
 
-      val recordsNum = paths.count()
       val totalTime = (System.nanoTime() - start) / 1e9
-      logger.info(s"[Prediction] ${ recordsNum } in $totalTime seconds. Throughput is ${
-        recordsNum / totalTime
-      } record / sec")
+      logger.info(s"[Prediction] total time: $totalTime seconds")
 
       if (params.vis) {
         if (params.folderType == "seq") {
@@ -167,11 +171,11 @@ object Predict {
           return
         }
 
-        paths.zip(output).foreach(pair => {
-          val decoded = BboxUtil.decodeRois(pair._2)
-          Visualizer.visDetection(pair._1, decoded, classNames, outPath = params.outputFolder)
+        output.rdd.foreach(feature => {
+          val decoded = BboxUtil.decodeRois(feature[Tensor[Float]](featureKey))
+          Visualizer.visDetection(feature[String](ImageFeature.uri), decoded, classNames, outPath = params.outputFolder)
         })
-        logger.info(s"labeled images are saved to ${ params.outputFolder }")
+        logger.info(s"labeled images are saved to ${params.outputFolder}")
       }
     }
   }
