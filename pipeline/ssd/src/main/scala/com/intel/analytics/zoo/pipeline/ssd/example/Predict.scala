@@ -56,7 +56,7 @@ object Predict {
     resolution: Int = 300,
     topK: Option[Int] = None,
     nPartition: Int = 1,
-    sql: String = "")
+    urls: String = "")
 
   val parser = new OptionParser[PascolVocDemoParam]("BigDL SSD Demo") {
     head("BigDL SSD Demo")
@@ -68,13 +68,6 @@ object Predict {
       .text("local image folder or hdfs sequence folder")
       .action((x, c) => c.copy(folderType = x))
       .required()
-      .validate(x => {
-        if (Set("local", "seq").contains(x.toLowerCase)) {
-          success
-        } else {
-          failure("folderType only support local|seq")
-        }
-      })
     opt[String]('o', "output")
       .text("where you put the output data")
       .action((x, c) => c.copy(outputFolder = x))
@@ -116,16 +109,17 @@ object Predict {
       .text("number of partitions")
       .action((x, c) => c.copy(nPartition = x))
       .required()
-    opt[String]("sql")
-      .text("sql to query url")
-      .action((x, c) => c.copy(sql = x))
+    opt[String]("urls")
+      .text("url files")
+      .action((x, c) => c.copy(urls = x))
   }
 
   def main(args: Array[String]): Unit = {
     parser.parse(args, PascolVocDemoParam()).foreach { params =>
       val conf = Engine.createSparkConf().setAppName("BigDL SSD Demo")
       val sc = new SparkContext(conf)
-      val ss = SparkSession.builder().enableHiveSupport().getOrCreate()
+      val ss = SparkSession.builder.config(conf)
+        .enableHiveSupport().getOrCreate()
       Engine.init
 
       val classNames = Source.fromFile(params.classname).getLines().toArray
@@ -144,7 +138,7 @@ object Predict {
       val imageFrame = params.folderType match {
         case "local" => Image.read(params.imageLoc, sc)
         case "seq" => IOUtils.loadImageFrameFromSeq(params.nPartition, params.imageLoc, sc)
-        case "hbase" => IOUtils.loadImageFrameFromHbase(params.nPartition, params.imageLoc, params.sql, ss)
+        case "hbase" => IOUtils.loadImageFrameFromHbase(params.nPartition, params.imageLoc, params.urls, ss)
         case _ => throw new IllegalArgumentException(s"invalid folder name ${params.folderType}")
       }
 
@@ -172,8 +166,11 @@ object Predict {
         }
 
         output.rdd.foreach(feature => {
-          val decoded = BboxUtil.decodeRois(feature[Tensor[Float]](featureKey))
-          Visualizer.visDetection(feature.uri(), decoded, classNames, outPath = params.outputFolder)
+          Visualizer.visDetection(
+            feature[Array[Byte]](ImageFeature.bytes),
+            feature.uri(),
+            feature[Tensor[Float]](featureKey),
+            classNames, outPath = params.outputFolder)
         })
         logger.info(s"labeled images are saved to ${params.outputFolder}")
       }

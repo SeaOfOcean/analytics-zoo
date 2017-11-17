@@ -25,7 +25,7 @@ import org.apache.hadoop.hbase.client.{ConnectionFactory, Put, Table}
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.SparkContext
 import scopt.OptionParser
 
 
@@ -43,7 +43,8 @@ object HbaseWriter {
     tableName: String = "image",
     imageFolder: String = "",
     overwrite: Boolean = false,
-    batch: Int = 64
+    batch: Int = 64,
+    urlFile: String = ""
   )
 
   val parser = new OptionParser[HBaseLoaderParam]("HBaseLoader") {
@@ -61,6 +62,10 @@ object HbaseWriter {
     opt[Int]('b', "batch")
       .text("batch size")
       .action((x, c) => c.copy(batch = x))
+    opt[String]("url")
+      .text("file to save url")
+      .action((x, c) => c.copy(urlFile = x))
+      .required()
   }
 
 
@@ -70,16 +75,13 @@ object HbaseWriter {
       val hbaseConn = ConnectionFactory.createConnection(configuration)
 
       val conf = Engine.createSparkConf().setAppName("HBaseLoader")
-      val ss = SparkSession.builder.config(conf)
-        .enableHiveSupport().getOrCreate()
-
+      val sc = new SparkContext(conf)
       val admin = hbaseConn.getAdmin
       val tableName = TableName.valueOf(params.tableName)
 
       if (admin.tableExists(tableName) && params.overwrite) {
         admin.disableTable(tableName)
         admin.deleteTable(tableName)
-        ss.sql(s"DROP TABLE IF EXISTS ${params.tableName}")
         logger.info(s"delete table $tableName")
       }
       if (!admin.tableExists(tableName)) {
@@ -100,7 +102,7 @@ object HbaseWriter {
       groupedImages.foreach(images => {
         putImages(table, images)
       })
-      ss.close()
+      sc.parallelize(images.map(_.toString)).saveAsTextFile(params.urlFile)
       hbaseConn.close()
     }
   }

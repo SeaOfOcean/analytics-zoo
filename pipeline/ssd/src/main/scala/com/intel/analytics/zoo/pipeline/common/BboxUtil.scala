@@ -378,6 +378,7 @@ object BboxUtil {
   }
 
   def decodeRois(output: Tensor[Float]): Tensor[Float] = {
+    if (output.dim() == 2 || output.nElement() == 0) return output
     val num = output.valueAt(1).toInt
     require(num >= 0, "output number should >= 0")
     if (num == 0) {

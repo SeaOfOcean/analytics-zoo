@@ -69,7 +69,7 @@ object Predictor {
           result.split(1)
         }
         batch.imageFeatures.zip(batchOut).map(x => {
-          x._1(outputKey) = x._2
+          x._1(outputKey) = BboxUtil.decodeRois(x._2)
           x._1
         })
       })

@@ -40,23 +40,43 @@ object IOUtils {
   val HB_COL_FAMILY = ImageFeature.bytes.getBytes()
   val HB_COL_NAME = ImageFeature.bytes.getBytes
 
-  def download(imgURIs: RDD[String], tableName: String, imgURLs1: RDD[String],
-    hbaseConn: Connection, table: Table): DistributedImageFrame = {
-    val rdd = imgURIs.map(key => {
-      val getFile = new Get(Bytes.toBytes(key))
-      val ret = table.get(getFile).getValue(HB_COL_FAMILY, HB_COL_NAME)
-      ImageFeature(ret, uri = key)
+  import scala.collection.JavaConverters._
+  def download(imgURIs: RDD[String], tableName: String, imgURLs1: RDD[String], group: Int = 50): DistributedImageFrame = {
+//    val rdd = imgURIs.map(key => {
+//      val table = getTable(tableName)
+//      val getFile = new Get(Bytes.toBytes(key))
+//      val ret = table.get(getFile).getValue(HB_COL_FAMILY, HB_COL_NAME)
+//      ImageFeature(ret, uri = key)
+//    })
+    val rdd = imgURIs.mapPartitions(iter => {
+      iter.grouped(group).flatMap(seq => {
+        val list = seq.map(key => new Get(Bytes.toBytes(key))).toList.asJava
+        val table = getTable(tableName)
+        val bytes = table.get(list).map(_.getValue(HB_COL_FAMILY, HB_COL_NAME))
+        seq.zip(bytes).map(x => {
+          println(x._1, x._2.length)
+          ImageFeature(x._2, uri = x._1)
+        })
+      })
     })
     ImageFrame.rdd(rdd)
   }
 
-  def loadImageFrameFromHbase(nPartition: Int, tableName: String, sql: String, ss: SparkSession) = {
-    val imgURLs = ss.sql(sql.replace("%"," ")).rdd.map(r=>r.getString(0)).repartition(nPartition)
-    // todo: need to save imgURLs to hdfs?
+  private def getHbaseConn = {
     val configuration = HBaseConfiguration.create()
-    val hbaseConn = ConnectionFactory.createConnection(configuration)
-    val table = hbaseConn.getTable(TableName.valueOf(tableName))
-    download(imgURLs, tableName, imgURLs, hbaseConn, table)
+    ConnectionFactory.createConnection(configuration)
+  }
+
+  val hbaseConn = getHbaseConn
+
+  def getTable(tableName: String) = {
+    hbaseConn.getTable(TableName.valueOf(tableName))
+  }
+
+  def loadImageFrameFromHbase(nPartition: Int, tableName: String, urlFile: String, ss: SparkSession) = {
+    // val imgURLs = ss.sql(sql.replace("%"," ")).rdd.map(r=>r.getString(0)).repartition(nPartition)mvn
+    val imgURLs = ss.sparkContext.textFile(urlFile, nPartition)
+    download(imgURLs, tableName, imgURLs)
   }
 
   def loadSeqFiles(nPartition: Int, seqFloder: String, sc: SparkContext)
